@@ -3,7 +3,7 @@
 > 一个**完全本地**的 dashboard，扫你的 `~/.claude/projects/` jsonl，告诉你
 > **今天 / 本周 / 本月**你用 Claude Code 做了什么、烧了多少 token、cache 命中率多少。
 >
-> **不联网 · 不上传 · 单脚本 + 单 HTML，零依赖**
+> **不联网 · 不上传 · 纯 Python 标准库，零第三方依赖**
 
 ## 它做什么
 
@@ -26,7 +26,7 @@
 ### 路线 A · 让 Claude Code 自动跑（推荐）
 
 ```bash
-git clone <this-repo>.git cc-reports
+git clone https://github.com/pxx-design/cc-reports
 cd cc-reports
 ```
 
@@ -37,6 +37,15 @@ cd cc-reports
 ```
 
 cc 会自动启 server 并打开 dashboard。
+
+**想随时随地一句话唤起**（在任何目录说「看我的 cc 日报」就自动跑），把它装成 skill：
+
+```bash
+# 软链(推荐,以后 git pull 即更新),或直接 cp -r
+ln -s "$(pwd)" ~/.claude/skills/cc-reports
+```
+
+下次启动 Claude Code 即可用自然语言触发。
 
 ### 路线 B · 命令行
 
@@ -113,6 +122,7 @@ cc-reports/
 ├── SKILL.md              cc 自动化协议
 ├── cc-reports.py         主脚本（build + serve）
 ├── cc-reports.html       dashboard 模板（数据通过 fetch 加载）
+├── cc_usage_core/        内核：jsonl 扫描 + 模型/定价注册表（纯标准库）
 ├── config.example.json   配置模板
 ├── .gitignore
 └── LICENSE
@@ -133,8 +143,8 @@ cc-reports/
 
 ## 相关
 
-- **[cc-token-dashboard](https://github.com/...)**：同一作者的姊妹项目，做季度回顾 + 16 型 token 人格。
-  cc-token-dashboard 是「年报 + 测一次玩」，cc-reports 是「每日工作日历」。互补不重叠。
+- **cc-token-dashboard**（同一作者的姊妹项目，季度回顾 + token 人格，*尚未开源*）：
+  它是「年报 + 测一次玩」，cc-reports 是「每日工作日历」。互补不重叠。
 
 ## License
 
