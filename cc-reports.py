@@ -16,6 +16,7 @@ Privacy:     100% local — no network calls except your own browser ↔ localho
 """
 
 import argparse
+import getpass
 import glob
 import importlib.util
 import json
@@ -42,6 +43,14 @@ from cc_usage_core import scan
 
 # System local timezone — works wherever the user runs this
 TZ = datetime.now().astimezone().tzinfo
+
+
+def _current_user():
+    """运行者本机用户名(顶栏显示用)。任何环境下都不抛异常。"""
+    try:
+        return getpass.getuser()
+    except Exception:
+        return os.environ.get("USER") or os.environ.get("USERNAME") or "you"
 
 # ─── Config ────────────────────────────────────────────
 DEFAULT_CONFIG = {
@@ -410,6 +419,7 @@ def build_data():
         "generated_at": datetime.now(TZ).isoformat(),
         "tz": str(TZ),
         "today": today.isoformat(),
+        "user": _current_user(),  # 顶栏显示运行者本机用户名,谁跑就是谁
         "days": days_out,
     }
 

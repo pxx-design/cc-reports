@@ -1703,7 +1703,7 @@
 <header class="topbar">
   <div class="brand"><span class="brand-mark">cc</span></div>
   <div class="crumbs">
-    <span>shona</span>
+    <span id="crumb-user">you</span>
     <span class="sep">/</span>
     <span>workspace</span>
     <span class="sep">/</span>
@@ -1711,7 +1711,7 @@
   </div>
   <div class="topbar-spacer"></div>
   <div class="meta-stamp" id="stamp">refreshed —</div>
-  <div class="avatar">S</div>
+  <div class="avatar" id="avatar">·</div>
 </header>
 
 <nav class="side-nav" id="side-nav" aria-label="页面导航" style="display:none;">
@@ -3065,7 +3065,7 @@
     const days = dateLabels.length;
     const summary = `<b>${sessions.length}</b> 个 session 跨 <b>${days}</b> 天，共 <b>${fmtMin(total)}</b>，最长一次「${escapeHTML(truncate(longest.title, 32))}」用了 <b>${fmtMin(longest.active_min)}</b>。`;
 
-    // per-project daily bar chart (the chart shona originally wanted "in the folder")
+    // per-project daily bar chart ("in the folder")
     const chart = renderFolderChart(projectName, agg);
 
     // sessions list, oldest first
@@ -3422,6 +3422,12 @@
       : "静态 · 需重跑 cc-reports.py build";
     document.getElementById("stamp").innerHTML =
       `<span>${escapeHTML(stamp)}</span><span style="margin-left:10px;opacity:0.6;">${escapeHTML(sourceTag)}</span>`;
+    // 顶栏用户名/头像 = 运行者本机系统用户名(后端注入),谁跑就是谁
+    const uname = (data.user || "you").trim() || "you";
+    const ue = document.getElementById("crumb-user");
+    if (ue) ue.textContent = uname;
+    const av = document.getElementById("avatar");
+    if (av) av.textContent = (uname[0] || "·").toUpperCase();
     document.title = `cc / reports · ${today.date} · ${today.sessions} 个 session`;
     rerender();
   }
