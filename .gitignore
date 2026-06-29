@@ -1,0 +1,28 @@
+# Your private project aliases — keep local, don't commit
+config.json
+
+# Generated snapshots — large + personal
+cc-reports-data.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Logs / scratch
+*.log
+.cc-reports-server.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Never commit Claude config / secrets
+.claude/
+**/settings.json
+**/*.env

@@ -1,0 +1,3599 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>cc / reports — Claude Code journal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --page-bg:        #fafafa;
+    --surface:        #ffffff;
+    --surface-alt:    #f5f5f5;
+    --text-primary:   #171717;
+    --text-secondary: #4d4d4d;
+    --text-tertiary:  #8a8a8a;
+    --text-quaternary:#b8b8b8;
+    --border:         rgba(0, 0, 0, 0.08);
+    --border-strong:  rgba(0, 0, 0, 0.14);
+    --shadow-card:    rgba(0, 0, 0, 0.08) 0px 0px 0px 1px,
+                      rgba(0, 0, 0, 0.04) 0px 2px 2px 0px;
+    --font-sans:      "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono:      "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --radius-sm:      6px;
+    --radius-md:      8px;
+    --radius-pill:    9999px;
+
+    /* greyscale ramp for chart fills */
+    --g1: #ebebeb;
+    --g2: #d4d4d4;
+    --g3: #8a8a8a;
+    --g4: #4d4d4d;
+    --g5: #171717;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--page-bg);
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; }
+
+  /* ─── Topbar ──────────────────────────────────────── */
+  .topbar {
+    height: 56px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 16px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+  .brand-mark {
+    width: 22px; height: 22px;
+    background: var(--text-primary);
+    border-radius: 4px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 12px; font-weight: 500;
+  }
+  .crumbs {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+  .crumbs .sep { opacity: 0.5; }
+  .crumbs .here { color: var(--text-primary); }
+  .topbar-spacer { flex: 1; }
+  .meta-stamp {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+  }
+  .avatar {
+    width: 28px; height: 28px;
+    border-radius: 9999px;
+    background: var(--text-primary);
+    color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 11px; font-weight: 500;
+  }
+
+  /* ─── Page header ─────────────────────────────────── */
+  .page {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* hero summary */
+  .hero {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    padding: 32px 36px;
+    margin-bottom: 32px;
+  }
+  .hero-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .hero-eyebrow .dot {
+    width: 6px; height: 6px; border-radius: 9999px;
+    background: var(--text-primary);
+  }
+  .hero-headline {
+    margin: 0 0 22px;
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -1.4px;
+    line-height: 1.2;
+    color: var(--text-primary);
+    max-width: 720px;
+  }
+  .hero-headline .accent { color: var(--text-tertiary); font-weight: 500; }
+  .hero-toplist {
+    margin-top: 12px;
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: -0.2px;
+    line-height: 1.55;
+    color: var(--text-secondary);
+  }
+  .hero-toplist .hero-top-item {
+    color: var(--text-primary);
+  }
+  .hero-toplist .hero-top-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+  .hero-toplist .hero-sep {
+    color: var(--text-quaternary);
+    margin: 0 4px;
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--border);
+    padding-top: 22px;
+  }
+  .stat {
+    padding: 0 28px;
+    border-right: 1px solid var(--border);
+    cursor: pointer;
+    transition: opacity 150ms ease-out;
+  }
+  .stat:first-child { padding-left: 0; }
+  .stat:last-child { padding-right: 0; border-right: 0; }
+  .stat:hover .stat-label { color: var(--text-secondary); }
+  .stat:hover .stat-info {
+    background: var(--text-primary);
+    color: #fff;
+    border-color: var(--text-primary);
+  }
+  .stat-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 13px;
+    height: 13px;
+    border-radius: 9999px;
+    border: 1px solid var(--border-strong);
+    color: var(--text-tertiary);
+    font-size: 9px;
+    font-weight: 500;
+    margin-left: 4px;
+    vertical-align: middle;
+    transition: background 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out;
+  }
+  .stat-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    font-family: var(--font-mono);
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -1.2px;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+  .stat-sub {
+    margin-top: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+
+  /* ─── Controls row ────────────────────────────────── */
+  .controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+    position: relative;
+    z-index: 30;
+  }
+  .tabs {
+    display: inline-flex;
+    padding: 3px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .tab {
+    border: 0; background: transparent;
+    color: var(--text-secondary);
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 13px; font-weight: 500;
+    letter-spacing: -0.1px;
+    transition: color 150ms ease-out, background 150ms ease-out;
+  }
+  .tab:hover { color: var(--text-primary); }
+  .tab[aria-selected="true"] {
+    background: var(--surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-card);
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 16px;
+    border-radius: var(--radius-pill);
+    font-size: 13px; font-weight: 500;
+    letter-spacing: -0.1px;
+    transition: opacity 150ms ease-out, background 150ms ease-out;
+  }
+  .btn-primary {
+    background: var(--text-primary); color: #fff;
+    border: 1px solid var(--text-primary);
+  }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-strong);
+  }
+  .btn-secondary:hover { background: var(--surface-alt); }
+  .btn-success {
+    background: var(--text-primary) !important;
+    color: #fff !important;
+    border-color: var(--text-primary) !important;
+  }
+  .btn-quiet {
+    color: var(--text-tertiary) !important;
+    border-color: var(--border) !important;
+    background: var(--surface-alt) !important;
+  }
+  .btn:disabled { cursor: default; }
+  .arrow { font-family: var(--font-mono); font-size: 12px; opacity: 0.7; }
+
+  /* ─── Export dropdown ────────────────────────────────── */
+  .export-wrap { position: relative; z-index: 31; }
+  .export-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 280px;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: rgba(0,0,0,0.08) 0 0 0 1px,
+                rgba(0,0,0,0.12) 0 8px 24px 0;
+    padding: 6px;
+    z-index: 999;
+    animation: fadeUp 180ms ease-out;
+  }
+  .export-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 0;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    text-align: left;
+    cursor: pointer;
+    color: var(--text-primary);
+    transition: background 120ms ease-out;
+  }
+  .export-item:hover { background: var(--surface-alt); }
+  .export-item-icon {
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--text-primary);
+    color: #fff;
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .export-item strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: -0.1px;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+  .export-item-desc {
+    display: block;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    line-height: 1.4;
+  }
+
+  /* ─── Print: PDF export via window.print() ───────────── */
+  @media print {
+    @page { size: A4; margin: 12mm; }
+
+    /* Force every element to keep its colors / backgrounds when printed.
+       Without this Chrome's "economy mode" strips background-color so all
+       the sparkline dots, token mix bars, stat backgrounds turn invisible. */
+    *, *::before, *::after {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+
+    body {
+      background: #fff !important;
+      color: var(--text-primary) !important;
+    }
+    .topbar,
+    .side-nav,
+    .controls,
+    .data-popover,
+    .footnote { display: none !important; }
+
+    /* Keep the on-screen layout exactly — row-2 stays grid, charts stay sized.
+       Just shrink the whole page so 1120px max-width fits A4 portrait. */
+    .page {
+      padding: 0 !important;
+      max-width: none !important;
+      zoom: 0.62;
+    }
+
+    .card,
+    .hero { box-shadow: none !important; border: 1px solid #d0d0d0 !important; break-inside: avoid; page-break-inside: avoid; }
+    .hero { padding: 24px 28px !important; }
+    .stat-info { display: none !important; }
+    .reveal { animation: none !important; }
+    .session-row:hover { background: transparent !important; }
+
+    /* Ensure SVG fills (used in sparkline area, mix bars) render */
+    svg, svg * { print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
+
+    /* add a print-only title at the very top */
+    body::before {
+      content: "cc / reports · " attr(data-print-range) " · " attr(data-print-date);
+      display: block;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #666;
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid #d0d0d0;
+    }
+  }
+
+  /* ─── Card primitive ──────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+  }
+  .card-head {
+    padding: 18px 22px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .card-head h2 {
+    margin: 0;
+    font-size: 15px; font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+  .card-head .meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+  }
+
+  /* sections layout */
+  .section { margin-bottom: 28px; }
+  .row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  /* ─── Hourly bar chart ────────────────────────────── */
+  .chart-hourly {
+    padding: 22px 24px 14px;
+  }
+  .chart-hourly svg { display: block; width: 100%; height: 200px; }
+
+  /* waveform-style hourly chart */
+  .chart-waveform {
+    padding: 20px 24px 12px;
+  }
+  .chart-waveform svg {
+    display: block;
+    width: 100%;
+    height: 110px;
+  }
+  .chart-waveform .bar-cell {
+    transition: opacity 150ms ease-out;
+  }
+  .chart-waveform:hover .bar-cell { opacity: 0.55; }
+  .chart-waveform .bar-hit:hover ~ .bar-cell { opacity: 1; }
+  .axis-row {
+    margin-top: 6px;
+    display: grid;
+    grid-template-columns: repeat(24, 1fr);
+    column-gap: 2px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-quaternary);
+  }
+  .axis-row span {
+    text-align: center;
+    padding-top: 4px;
+  }
+  .axis-row span.peak { color: var(--text-primary); font-weight: 500; }
+
+  .chart-foot {
+    padding: 12px 24px 18px;
+    display: flex; justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+  .chart-foot strong { color: var(--text-primary); font-weight: 500; }
+
+  /* ─── Heatmap ───────────────────────────────────────── */
+  .heatmap-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(220px, 1fr);
+    gap: 24px;
+    padding: 18px 24px 8px;
+  }
+  .heatmap-wrap {
+    min-width: 0;
+    overflow-x: auto;
+  }
+  .heatmap-wrap svg { display: block; }
+  .heatmap-cell { transition: opacity 120ms ease-out; }
+  .heatmap-cell:hover { opacity: 0.7; }
+  .heatmap-legend {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+    justify-content: flex-end;
+  }
+  .heatmap-legend .sw {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+  }
+  .heatmap-legend span:first-child { margin-right: 4px; }
+  .heatmap-legend span:last-child { margin-left: 4px; }
+
+  /* Right-side rhythm summary */
+  .heatmap-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 4px 0 0;
+    border-left: 1px solid var(--border);
+    padding-left: 22px;
+  }
+  .rhythm-stat {
+    line-height: 1.2;
+  }
+  .rhythm-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+    margin-bottom: 4px;
+  }
+  .rhythm-value {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.6px;
+    color: var(--text-primary);
+  }
+  .rhythm-value-mono {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    letter-spacing: -0.2px;
+  }
+  .rhythm-unit {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    font-weight: 400;
+    letter-spacing: 0;
+    margin-left: 2px;
+  }
+  .rhythm-sub {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+  }
+  .rhythm-insight {
+    margin-top: 6px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+  }
+  .rhythm-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--surface-alt);
+    margin-bottom: 6px;
+  }
+  .rhythm-bar-seg {
+    background: var(--text-primary);
+    transition: opacity 150ms;
+  }
+  .rhythm-bar-seg.rb-afternoon { background: #4d4d4d; }
+  .rhythm-bar-seg.rb-evening   { background: #8a8a8a; }
+  .rhythm-bar-seg.rb-night     { background: #c8c8c8; }
+  .rhythm-bar-legend {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-tertiary);
+    letter-spacing: -0.05px;
+    margin-bottom: 10px;
+  }
+  .rhythm-bar-legend b { color: var(--text-primary); font-weight: 500; }
+  .rhythm-narrative {
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    margin-top: 6px;
+  }
+  .rhythm-narrative b { color: var(--text-primary); font-weight: 500; }
+  .rhythm-narrative p { margin: 0; }
+  .rhythm-narrative p + p { margin-top: 6px; }
+
+  /* Weekly compact variant — heatmap is only ~110px tall, side panel must match */
+  .heatmap-row.is-weekly .heatmap-stats {
+    justify-content: flex-start;
+    gap: 12px;
+    padding-top: 0;
+  }
+  .heatmap-row.is-weekly .rhythm-row {
+    display: flex;
+    gap: 28px;
+  }
+  .heatmap-row.is-weekly .rhythm-peak-inline {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+  }
+  .heatmap-row.is-weekly .rhythm-peak-inline .rhythm-label {
+    margin-bottom: 0;
+  }
+  .heatmap-row.is-weekly .rhythm-narrative-weekly {
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+    margin-top: 0;
+  }
+  .heatmap-row.is-weekly .rhythm-value {
+    font-size: 19px;
+  }
+
+  @media (max-width: 760px) {
+    .heatmap-row { grid-template-columns: 1fr; }
+    .heatmap-stats { border-left: 0; padding-left: 0; border-top: 1px solid var(--border); padding-top: 18px; }
+  }
+
+  /* ─── Sparkline pair ──────────────────────────────── */
+  .spark {
+    padding: 22px 24px;
+  }
+  .spark-row {
+    display: flex; align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .spark-name {
+    font-size: 13px; font-weight: 500;
+    letter-spacing: -0.1px;
+  }
+  .spark-val {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+  .spark-container {
+    position: relative;
+    width: 100%;
+    height: 56px;
+    margin-bottom: 6px;
+  }
+  .spark-container svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .spark-dots {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .spark-dot {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: var(--g3);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: transform 150ms ease-out, background 150ms ease-out;
+  }
+  .spark-dot.is-last {
+    width: 6px;
+    height: 6px;
+    background: var(--g5);
+  }
+  .spark-dot.is-clickable {
+    pointer-events: auto;
+    cursor: pointer;
+  }
+  .spark-dot.is-clickable:hover {
+    transform: translate(-50%, -50%) scale(1.6);
+    background: var(--g5);
+  }
+  .spark + .spark { border-top: 1px solid var(--border); }
+  .spark-axis {
+    display: flex; justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-quaternary);
+  }
+
+  /* ─── Token mix ───────────────────────────────────── */
+  .mix { padding: 22px 24px; }
+  .mix-bar {
+    display: flex; height: 28px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+  .mix-seg {
+    height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    transition: opacity 150ms ease-out;
+  }
+  .mix-seg:hover { opacity: 0.85; }
+  .mix-legend {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px 18px;
+  }
+  .mix-legend-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px;
+  }
+  .mix-legend-item .sw {
+    width: 10px; height: 10px; border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .mix-legend-item .name { color: var(--text-secondary); }
+  .mix-legend-item .val {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-primary);
+    margin-left: auto;
+  }
+  .mix-insight {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    letter-spacing: -0.1px;
+  }
+  .mix-insight b {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+  /* Row-2 layout — token mix card uses dark side insight as bottom filler;
+     unified below (around L880). */
+
+  /* ─── Sessions list ───────────────────────────────── */
+  .session-row {
+    display: grid;
+    grid-template-columns: 64px 1fr 130px 110px;
+    gap: 16px;
+    align-items: center;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--border);
+    transition: background 150ms ease-out;
+  }
+  .session-row:last-child { border-bottom: 0; }
+  .session-row:hover { background: var(--surface-alt); }
+  .session-time {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-primary);
+  }
+  .session-time .sub {
+    display: block;
+    color: var(--text-tertiary);
+    font-size: 10px;
+    margin-top: 2px;
+  }
+  .session-main { min-width: 0; }
+  .session-title {
+    font-size: 13.5px;
+    font-weight: 500;
+    letter-spacing: -0.15px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+  .session-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+    display: flex; gap: 10px;
+  }
+  .session-meta .tag {
+    padding: 1px 7px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: var(--page-bg);
+    color: var(--text-secondary);
+    text-transform: lowercase;
+  }
+  .session-bar-wrap {
+    height: 6px; width: 100%;
+    background: var(--surface-alt);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+  .session-bar {
+    height: 100%;
+    background: var(--text-primary);
+    border-radius: 9999px;
+  }
+  .session-tokens {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-primary);
+  }
+  .session-tokens .sub {
+    color: var(--text-tertiary);
+    font-size: 11px;
+    display: block;
+    margin-top: 2px;
+  }
+
+  /* Projects card — dark-callout narrative below the card head */
+  .projects-section .projects-insight {
+    margin: 16px 24px 0;
+    padding: 16px 20px 18px;
+    background: var(--text-primary);
+    color: rgba(255, 255, 255, 0.86);
+    border-radius: 8px;
+    font-size: 12.5px;
+    line-height: 1.7;
+    letter-spacing: -0.05px;
+    position: relative;
+  }
+  .projects-section .projects-insight p { margin: 0; }
+  .projects-section .projects-insight p + p { margin-top: 6px; }
+  .projects-section .projects-insight b {
+    color: #ffffff;
+    font-weight: 500;
+  }
+  .projects-section .projects-insight::before {
+    content: "INSIGHT";
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: rgba(255, 255, 255, 0.45);
+    margin-bottom: 8px;
+  }
+  /* Push the bookshelf area down to leave room for the callout above */
+  .projects-section .proj-list {
+    margin-top: 20px;
+  }
+
+  /* Dark trend-side callout sitting at the bottom of the Token mix card */
+  .mix-side-insight {
+    margin-top: auto;
+    padding: 16px 18px 18px;
+    background: var(--text-primary);
+    color: rgba(255, 255, 255, 0.85);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    font-size: 12.5px;
+    line-height: 1.65;
+    letter-spacing: -0.05px;
+  }
+  .mix-side-insight .msi-label {
+    display: block;
+    margin-bottom: 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgba(255, 255, 255, 0.5);
+  }
+  .mix-side-insight p { margin: 0; }
+  .mix-side-insight p + p { margin-top: 6px; }
+  .mix-side-insight b {
+    color: #ffffff;
+    font-weight: 500;
+  }
+  /* Ensure card containing side-insight allows mix to expand and msi to sit at bottom */
+  .row-2 > .card { display: flex; flex-direction: column; }
+  .row-2 > .card > .mix { flex: 0 0 auto; }
+  .row-2 > .card > .mix-side-insight { margin-top: auto; }
+
+  /* ─── Projects: white acrylic shelf + manila folder cards ─ */
+  :root {
+    --paper:         #ffffff;       /* 纯白前页 */
+    --paper-back:    #e5e5e3;       /* 后盖深一档 */
+    --paper-tab:     #f1f1ef;       /* tab 略灰白 */
+    --paper-edge:    #d8d8d4;       /* 折角 / 描边灰 */
+    --desk:          #f6f6f3;       /* 桌面极淡冷灰 */
+    --shelf-top:     #ffffff;
+    --shelf-mid:     #e8e8e5;
+    --shelf-bot:     #c2c2bf;
+  }
+  .projects-section .proj-list {
+    background: var(--desk);
+    padding: 40px 32px 16px;
+    border-top: 1px solid var(--border);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+  }
+  .shelf-row {
+    display: grid;
+    gap: 32px 18px;
+    margin-bottom: 56px;
+    position: relative;
+    padding-bottom: 38px;
+    align-items: start;
+  }
+  /* Top-3 highlight row — 3 columns, bigger cards */
+  .shelf-row.row-top3 {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 36px 22px;
+  }
+  /* Regular ranks — 4 per row */
+  .shelf-row.row-normal {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  /* Daily view (no stamps) — 4 per row, all normal */
+  .shelf-row.row-daily {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .shelf-row:last-child { margin-bottom: 14px; }
+  .shelf-row::after {
+    /* white shelf — thick but minimal */
+    content: "";
+    position: absolute;
+    bottom: 4px;
+    left: -8px;
+    right: -8px;
+    height: 18px;
+    background: linear-gradient(180deg, #ffffff 0%, #ececea 100%);
+    border-radius: 2px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.10);
+  }
+  .shelf-row::before {
+    content: "";
+    position: absolute;
+    bottom: -4px;
+    left: 6px;
+    right: 6px;
+    height: 6px;
+    background: rgba(0, 0, 0, 0.05);
+    filter: blur(4px);
+    z-index: -1;
+  }
+
+  @media (max-width: 1180px) {
+    .shelf-row.row-normal,
+    .shelf-row.row-daily { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 880px) {
+    .shelf-row.row-top3,
+    .shelf-row.row-normal,
+    .shelf-row.row-daily { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 560px) {
+    .shelf-row.row-top3,
+    .shelf-row.row-normal,
+    .shelf-row.row-daily { grid-template-columns: 1fr; }
+  }
+
+  /* Manila folder · Tobias-style — envelope with content peeking from top-right */
+  .folder-card {
+    position: relative;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 96px 16px 18px;
+    margin-top: 12px;
+    cursor: pointer;
+    transition:
+      transform 240ms cubic-bezier(0.2, 0, 0.2, 1),
+      box-shadow 240ms ease-out;
+    box-shadow:
+      0 1px 0 0 rgba(0, 0, 0, 0.04),
+      0 1px 3px 0 rgba(0, 0, 0, 0.06),
+      0 10px 22px -4px rgba(0, 0, 0, 0.08);
+    min-height: 210px;
+  }
+  /* Top-3 cards are larger — bigger duration, taller card, larger thumb */
+  .row-top3 .folder-card {
+    min-height: 240px;
+    padding: 110px 20px 22px;
+  }
+  .row-top3 .folder-thumb {
+    height: 100px;
+    width: 48%;
+    right: 20px;
+  }
+  .row-top3 .folder-duration {
+    font-size: 28px;
+    letter-spacing: -1px;
+  }
+  .row-top3 .folder-name {
+    font-size: 14px;
+  }
+
+  /* slight rotation per slot — "not laid out too tidily" */
+  .shelf-row .folder-card:nth-child(3n+1) { transform: rotate(-0.6deg); }
+  .shelf-row .folder-card:nth-child(3n+2) { transform: rotate(0.4deg); }
+  .shelf-row .folder-card:nth-child(3n+3) { transform: rotate(-0.3deg); }
+
+  .folder-card:hover {
+    transform: rotate(0deg) translateY(-4px);
+    box-shadow:
+      0 1px 0 0 rgba(0, 0, 0, 0.05),
+      0 3px 8px 0 rgba(0, 0, 0, 0.09),
+      0 22px 40px -8px rgba(0, 0, 0, 0.14);
+    z-index: 2;
+  }
+  .folder-card.is-open {
+    transform: rotate(0deg) translateY(-4px);
+    box-shadow:
+      0 1px 0 0 rgba(0, 0, 0, 0.06),
+      0 4px 10px 0 rgba(0, 0, 0, 0.10),
+      0 24px 44px -10px rgba(0, 0, 0, 0.16);
+    z-index: 3;
+  }
+
+  /* Open pill removed — folder-card hover affordance carries the click hint */
+  .folder-tab { display: none; }
+
+  /* Content thumbnail peeking from top-right — the heart of manila-folder look.
+     A small "card" tucked into the folder, sticking up above its top edge. */
+  .folder-thumb {
+    position: absolute;
+    top: -10px;
+    right: 16px;
+    width: 50%;
+    height: 86px;
+    background:
+      linear-gradient(135deg, #fafafa 0%, #ececea 100%);
+    border-radius: 4px;
+    box-shadow:
+      0 1px 0 rgba(0, 0, 0, 0.04),
+      -3px 4px 12px rgba(0, 0, 0, 0.14);
+    overflow: hidden;
+    padding: 10px 12px;
+    z-index: 1;
+    display: flex;
+    align-items: flex-end;
+  }
+  .folder-thumb::before {
+    /* horizontal "writing lines" on the inner thumbnail — subtle paper-like */
+    content: "";
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    right: 12px;
+    height: 48px;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 7px,
+        rgba(0, 0, 0, 0.05) 7px,
+        rgba(0, 0, 0, 0.05) 8px
+      );
+    border-radius: 1px;
+  }
+  .folder-thumb-text {
+    position: relative;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    letter-spacing: -0.1px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    max-height: 28px;
+    width: 100%;
+  }
+
+  /* Inner data — bottom-left of the folder face */
+  .folder-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: -0.15px;
+    margin-bottom: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .folder-staples { display: none; }
+
+  /* Top-3 stamp — circular weathered seal, appears on weekly/monthly ranks 1-3 */
+  .folder-stamp {
+    position: absolute;
+    bottom: 18px;
+    right: 16px;
+    width: 56px;
+    height: 56px;
+    border: 1.8px solid rgba(40, 40, 40, 0.55);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 4;
+    background: transparent;
+    opacity: 0.78;
+  }
+  .folder-stamp::before {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    border: 1px dashed rgba(40, 40, 40, 0.4);
+    border-radius: 50%;
+  }
+  .folder-stamp-rank {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 700;
+    color: rgba(40, 40, 40, 0.7);
+    line-height: 1;
+    letter-spacing: -0.04em;
+  }
+  .folder-stamp-label {
+    font-family: var(--font-mono);
+    font-size: 7px;
+    font-weight: 700;
+    color: rgba(40, 40, 40, 0.6);
+    letter-spacing: 0.18em;
+    margin-top: 2px;
+    text-transform: uppercase;
+  }
+  .folder-stamp.rank-1 { transform: rotate(-12deg); }
+  .folder-stamp.rank-2 { transform: rotate(-6deg); }
+  .folder-stamp.rank-3 { transform: rotate(8deg); }
+
+  /* Top-3 muted metallic accents — low-saturation gold / silver / bronze.
+     Restrained: stamp only, folder body stays white. */
+  .folder-stamp.rank-1 {
+    border-color: rgba(165, 130, 50, 0.62);
+  }
+  .folder-stamp.rank-1::before {
+    border-color: rgba(165, 130, 50, 0.42);
+  }
+  .folder-stamp.rank-1 .folder-stamp-rank,
+  .folder-stamp.rank-1 .folder-stamp-label {
+    color: rgba(140, 105, 35, 0.78);
+  }
+
+  .folder-stamp.rank-2 {
+    border-color: rgba(75, 105, 135, 0.62);    /* cool slate-blue silver */
+  }
+  .folder-stamp.rank-2::before {
+    border-color: rgba(75, 105, 135, 0.42);
+  }
+  .folder-stamp.rank-2 .folder-stamp-rank,
+  .folder-stamp.rank-2 .folder-stamp-label {
+    color: rgba(58, 88, 118, 0.80);
+  }
+
+  .folder-stamp.rank-3 {
+    border-color: rgba(140, 88, 56, 0.58);
+  }
+  .folder-stamp.rank-3::before {
+    border-color: rgba(140, 88, 56, 0.40);
+  }
+  .folder-stamp.rank-3 .folder-stamp-rank,
+  .folder-stamp.rank-3 .folder-stamp-label {
+    color: rgba(115, 72, 46, 0.75);
+  }
+
+  /* Same metallic accent re-used as a tiny dot before the project name —
+     a second, persistent anchor for rank (the stamp is sort of decorative;
+     this dot makes the rank visible even at-a-glance). */
+  .folder-card.is-rank-1 .folder-name::before,
+  .folder-card.is-rank-2 .folder-name::before,
+  .folder-card.is-rank-3 .folder-name::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: 1px;
+  }
+  .folder-card.is-rank-1 .folder-name::before { background: #b18a3c; }
+  .folder-card.is-rank-2 .folder-name::before { background: #4b6985; }
+  .folder-card.is-rank-3 .folder-name::before { background: #a8694a; }
+
+  .folder-duration {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.8px;
+    color: var(--text-primary);
+    line-height: 1.1;
+    margin: 0 0 6px;
+  }
+  .folder-unit {
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--text-muted, #9a9a9a);
+  }
+  /* 兜底桶(root files / lab 等非真项目): 视觉降权, 不抢真项目的注意力 */
+  .folder-card.is-fallback { opacity: 0.6; }
+  .folder-card.is-fallback .folder-duration { color: var(--text-muted, #9a9a9a); font-weight: 400; }
+  .insight-muted { color: var(--text-muted, #9a9a9a); }
+  .folder-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-bottom: 14px;
+  }
+  .folder-spark {
+    display: block;
+    width: 100%;
+    height: 24px;
+  }
+
+  .folder-corner {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 16px;
+    height: 16px;
+    background: linear-gradient(135deg, transparent 50%, var(--paper-edge) 50%);
+    border-bottom-right-radius: 8px;
+    transition: width 240ms ease-out, height 240ms ease-out;
+    pointer-events: none;
+    box-shadow: inset -1px -1px 2px rgba(0, 0, 0, 0.05);
+  }
+  .folder-card:hover .folder-corner {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Expanded session list — inline, expands the clicked card downward.
+     Other cards in the same row don't stretch (align-items: start on the row),
+     so they stay their original height while the open card grows. */
+  .folder-details {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    margin-top: 0;
+    transition:
+      max-height 340ms cubic-bezier(0.2, 0, 0.2, 1),
+      opacity 200ms ease-out,
+      margin-top 340ms cubic-bezier(0.2, 0, 0.2, 1);
+  }
+  .folder-card.is-open .folder-details {
+    max-height: 800px;
+    opacity: 1;
+    margin-top: 16px;
+  }
+  /* Keep the open card on top so its shadow/lift renders above siblings */
+  .folder-card.is-open { z-index: 30; }
+  /* Belt-and-suspenders: explicit align-self on cards so grid can't stretch them */
+  .folder-card { align-self: start; }
+  .folder-summary {
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.035);
+    border-radius: 4px;
+    margin-bottom: 10px;
+    letter-spacing: -0.05px;
+  }
+  .folder-summary b { color: var(--text-primary); font-weight: 500; }
+  .folder-session {
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    gap: 10px;
+    padding: 6px 0;
+    align-items: baseline;
+    font-size: 12px;
+    border-bottom: 1px dashed rgba(0, 0, 0, 0.10);
+  }
+  .folder-session:last-child { border-bottom: 0; }
+  .folder-session .fs-time {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+  }
+  .folder-session .fs-title {
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    letter-spacing: -0.1px;
+  }
+  .folder-session .fs-meta {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+  }
+  .folder-empty {
+    padding: 14px 0;
+    text-align: center;
+    color: var(--text-tertiary);
+    font-style: italic;
+    font-size: 12px;
+  }
+
+  /* ─── Session drill-down: 点 session 看逐轮解剖 ─── */
+  .session-row.is-drill, .folder-session.is-drill { cursor: pointer; }
+  .session-row.is-drill .session-title::before {
+    content: "\25B8";   /* ▸ */
+    display: inline-block;
+    margin-right: 7px;
+    color: var(--text-tertiary);
+    font-size: 9px;
+    transition: transform 0.15s ease;
+  }
+  .session-row.is-drill.open .session-title::before { transform: rotate(90deg); }
+  /* open 的行 + drawer 连成一块"被打开"的凹陷面板, 区别于白列表 */
+  .session-row.is-drill.open { background: var(--surface-alt); }
+  .session-drill {
+    background: var(--surface-alt);
+    padding: 4px 22px 14px 42px;   /* 左缩进进 row 内容栏, 不贴边 */
+    border-bottom: 1px solid var(--border);
+    animation: drillIn 0.18s ease;
+  }
+  @keyframes drillIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+  .drill-cap, .drill-loading, .drill-empty {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-tertiary);
+    padding: 8px 0 10px;
+    letter-spacing: 0.02em;
+  }
+  /* 一轮 = 一条: 提问(主体, 左) + token(量级图, 右) / 下方一行 dateline */
+  .turn {
+    display: grid;
+    grid-template-columns: 1fr 90px;
+    column-gap: 18px;
+    row-gap: 3px;
+    padding: 10px 0;
+    border-top: 1px solid var(--border);
+    align-items: baseline;
+  }
+  .turn:first-of-type { border-top: 0; }
+  .turn.is-quiet { opacity: 0.4; }
+  /* 提问 = 阅读主体 */
+  .turn-prompt {
+    grid-row: 1; grid-column: 1;
+    font-size: 13.5px; color: var(--text-primary); line-height: 1.45;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* token = 信息本身: 量级靠字重/字色编码, 不靠装饰条; 越烧越黑越重 */
+  .turn-cost {
+    grid-row: 1; grid-column: 2;
+    text-align: right; font-family: var(--font-mono); white-space: nowrap;
+  }
+  .turn-cost.t-spike { font-size: 14px;   font-weight: 700; color: var(--text-primary); }
+  .turn-cost.t-mid   { font-size: 13px;   font-weight: 600; color: var(--text-primary); }
+  .turn-cost.t-low   { font-size: 12.5px; font-weight: 500; color: var(--text-secondary); }
+  .turn-cost.t-faint { font-size: 12.5px; font-weight: 400; color: var(--text-tertiary); }
+  /* dateline: 文件=chip(领读, 凸起白片) / 工具=纯文字(退一层) / 时间=最右淡 */
+  .turn-sub {
+    grid-row: 2; grid-column: 1 / -1;
+    display: flex; flex-wrap: nowrap; gap: 12px; align-items: center;
+    font-family: var(--font-mono); font-size: 10.5px; line-height: 1.4; overflow: hidden;
+  }
+  .dl-files { display: flex; gap: 5px; flex: 0 1 auto; min-width: 0; overflow: hidden; }
+  .dl-file {
+    flex: 0 0 auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1px 7px;
+    color: var(--text-secondary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 168px;
+  }
+  .dl-more { flex: 0 0 auto; color: var(--text-quaternary); align-self: center; }
+  .dl-tools { color: var(--text-tertiary);  flex: 0 0 auto; white-space: nowrap; }
+  .dl-time  { color: var(--text-quaternary); flex: 0 0 auto; margin-left: auto; white-space: nowrap; }
+
+  /* Per-project bar chart shown when folder is expanded — no container, naked */
+  .folder-chart {
+    margin: 14px 0 18px;
+    padding: 0;
+    background: transparent;
+  }
+  .folder-chart-title {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+  .folder-chart-title strong {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+  .folder-chart svg {
+    display: block;
+    width: 100%;
+    height: 52px;
+  }
+  .folder-chart-axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-quaternary);
+  }
+
+  @media (max-width: 560px) {
+    .shelf-row .folder-card { transform: rotate(0) !important; }
+  }
+
+  /* footnote */
+  .footnote {
+    margin-top: 36px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+    display: flex;
+    justify-content: space-between;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ─── Bar-chart model legend ────────────────────────── */
+  .bar-model-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    padding: 4px 24px 8px;
+  }
+  .legend-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+  }
+  .legend-sw {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+  }
+  .legend-pill-val {
+    color: var(--text-tertiary);
+  }
+  /* ─── Daily per-model token breakdown ─────────────── */
+  .model-usage { padding: 2px 24px 10px; }
+  .model-usage-bar {
+    display: flex;
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+    background: var(--g1);
+    margin-bottom: 12px;
+  }
+  .model-usage-bar > span { height: 100%; }
+  .mu-row {
+    display: grid;
+    grid-template-columns: minmax(96px, 1.2fr) auto 40px 1fr;
+    align-items: baseline;
+    gap: 10px;
+    padding: 5px 0;
+    border-top: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .mu-row:first-child { border-top: none; }
+  .mu-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+  .mu-tok { color: var(--text-primary); text-align: right; font-variant-numeric: tabular-nums; }
+  .mu-share { color: var(--text-tertiary); text-align: right; font-variant-numeric: tabular-nums; }
+  .mu-meta { color: var(--text-tertiary); text-align: right; font-size: 11px; }
+  .bar-cell { transition: opacity 150ms ease-out; }
+  .bar-hit:hover ~ .bar-cell,
+  svg:has(.bar-hit:hover) .bar-cell { opacity: 0.85; }
+
+  /* ─── Generic click popover ──────────────────────────── */
+  .data-popover {
+    position: absolute;
+    z-index: 100;
+    min-width: 220px;
+    max-width: 320px;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: rgba(0,0,0,0.08) 0px 0px 0px 1px,
+                rgba(0,0,0,0.12) 0px 8px 24px 0px;
+    padding: 14px 16px;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+  .popover-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    border: 0;
+    background: transparent;
+    color: var(--text-tertiary);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+  .popover-close:hover { color: var(--text-primary); background: var(--surface-alt); }
+  .popover-head {
+    padding-bottom: 10px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .popover-title {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+  .popover-sub {
+    display: block;
+    margin-top: 3px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+  .popover-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 5px 0;
+    font-size: 13px;
+  }
+  .popover-row + .popover-row {
+    border-top: 1px solid var(--border);
+  }
+  .popover-label {
+    color: var(--text-secondary);
+  }
+  .popover-val {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-primary);
+  }
+  .popover-empty {
+    color: var(--text-tertiary);
+    font-style: italic;
+    text-align: center;
+    padding: 12px 0;
+  }
+  .popover-body p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    letter-spacing: -0.1px;
+  }
+  .popover-body p + p { margin-top: 8px; }
+  .popover-body code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--surface-alt);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--text-primary);
+  }
+  .popover-body strong { color: var(--text-primary); font-weight: 500; }
+  .popover-section {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .popover-section > strong {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .data-popover { max-width: 380px; }
+
+  /* ─── Side nav ────────────────────────────────────── */
+  .side-nav {
+    position: fixed;
+    right: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    z-index: 5;
+    padding: 18px 14px;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    transition: background 200ms ease-out;
+  }
+  .side-nav:hover { background: var(--surface); }
+  .side-nav a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+    transition: color 150ms ease-out;
+    text-decoration: none;
+  }
+  .side-nav a:hover { color: var(--text-primary); }
+  .side-nav .nav-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--text-quaternary);
+    flex-shrink: 0;
+    transition: background 150ms ease-out, transform 150ms ease-out;
+  }
+  .side-nav a.active { color: var(--text-primary); }
+  .side-nav a.active .nav-dot {
+    background: var(--text-primary);
+    transform: scale(1.3);
+  }
+  .side-nav .nav-label {
+    white-space: nowrap;
+    max-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-width 200ms ease-out, opacity 200ms ease-out;
+  }
+  .side-nav:hover .nav-label,
+  .side-nav a.active .nav-label {
+    max-width: 140px;
+    opacity: 1;
+  }
+
+  @media (max-width: 1380px) {
+    .side-nav { display: none; }
+  }
+
+  /* loading / empty states */
+  .loading {
+    padding: 80px 24px;
+    text-align: center;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
+  /* trend card insight at the bottom */
+  .trend-insight {
+    margin: 10px 24px 18px;
+    padding: 12px 14px;
+    background: rgba(0, 0, 0, 0.028);
+    border-radius: 6px;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    letter-spacing: -0.05px;
+  }
+  .trend-insight p { margin: 0; }
+  .trend-insight p + p { margin-top: 6px; }
+  .trend-insight b { color: var(--text-primary); font-weight: 500; }
+
+  /* fade-in */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .reveal { animation: fadeUp 320ms ease-out both; }
+
+  @media (max-width: 900px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .stat:nth-child(2) { border-right: 0; }
+    .row-2 { grid-template-columns: 1fr; }
+    .session-row { grid-template-columns: 56px 1fr; row-gap: 8px; }
+    .session-row > *:nth-child(3),
+    .session-row > *:nth-child(4) { grid-column: 1 / -1; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="brand-mark">cc</span></div>
+  <div class="crumbs">
+    <span>shona</span>
+    <span class="sep">/</span>
+    <span>workspace</span>
+    <span class="sep">/</span>
+    <span class="here">reports</span>
+  </div>
+  <div class="topbar-spacer"></div>
+  <div class="meta-stamp" id="stamp">refreshed —</div>
+  <div class="avatar">S</div>
+</header>
+
+<nav class="side-nav" id="side-nav" aria-label="页面导航" style="display:none;">
+  <a href="#hero" data-target="hero"><span class="nav-dot"></span><span class="nav-label">概览</span></a>
+  <a href="#activity" data-target="activity"><span class="nav-dot"></span><span class="nav-label">时段</span></a>
+  <a href="#trend" data-target="trend"><span class="nav-dot"></span><span class="nav-label">趋势</span></a>
+  <a href="#projects" data-target="projects"><span class="nav-dot"></span><span class="nav-label">项目</span></a>
+  <a href="#sessions" data-target="sessions"><span class="nav-dot"></span><span class="nav-label">Sessions</span></a>
+</nav>
+
+<main class="page" id="app">
+  <div class="loading">加载 session 数据…</div>
+</main>
+
+<script>
+  // ─── Formatters ─────────────────────────────────────
+  const fmtInt = n => (n || 0).toLocaleString("en-US");
+  const fmtTok = n => {
+    if (!n) return "0";
+    if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + "k";
+    return n.toString();
+  };
+  const fmtMin = m => {
+    if (m < 60) return m + "m";
+    const h = Math.floor(m / 60), mm = m % 60;
+    return mm === 0 ? `${h}h` : `${h}h ${mm}m`;
+  };
+  const fmtTimeHHMM = iso => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  };
+  const weekdayLong = iso => {
+    const d = new Date(iso + "T12:00:00");
+    return d.toLocaleDateString("zh-CN", { weekday: "long" });
+  };
+  const monthDay = iso => {
+    const d = new Date(iso + "T12:00:00");
+    return d.toLocaleDateString("zh-CN", { month: "long", day: "numeric" });
+  };
+  const fmtMonthDay = iso => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
+  };
+  const truncate = (s, n) => !s ? "" : (s.length > n ? s.slice(0, n - 1) + "…" : s);
+  const formatDelta = (d, suffix, fmt) => {
+    if (d === 0) return "±0 " + suffix;
+    const sign = d > 0 ? "+" : "−";
+    const v = fmt ? fmt(Math.abs(d)) : Math.abs(d);
+    return sign + v + " " + suffix;
+  };
+  // tokens excluding cache_read — "real work"
+  const workTokens = tk => (tk.output || 0) + (tk.cache_creation || 0);
+  // cache_read / (input + cache_read + cache_creation)
+  const cacheHitRate = tk => {
+    const denom = (tk.input || 0) + (tk.cache_read || 0) + (tk.cache_creation || 0);
+    return denom > 0 ? (tk.cache_read || 0) / denom : 0;
+  };
+
+  // Build N-day token series per project name across a day window.
+  // Used by renderProjects to draw a sparkline next to each row (与卡片主指标 tokens 一致).
+  function attachProjectSparklines(projects, windowDays) {
+    const series = new Map();
+    const latestTitle = new Map();   // project -> most-recent ai-title
+    windowDays.forEach((d, di) => {
+      for (const p of d.projects) {
+        const key = p.name;
+        if (!series.has(key)) series.set(key, new Array(windowDays.length).fill(0));
+        series.get(key)[di] = p.tokens || 0;
+      }
+      // walk this day's sessions; for each project, keep the latest session's title
+      for (const s of (d.sessions_list || [])) {
+        const proj = s.project;
+        if (!proj) continue;
+        // later day overrides; same day, later start time overrides
+        const prev = latestTitle.get(proj);
+        if (!prev || (s.start || "") > (prev.start || "")) {
+          latestTitle.set(proj, { title: s.title, start: s.start });
+        }
+      }
+    });
+    return projects.map(p => ({
+      ...p,
+      sparkline: series.get(p.name) || new Array(windowDays.length).fill(0),
+      _latest_title: (latestTitle.get(p.name) || {}).title || "",
+    }));
+  }
+
+  // ─── Aggregation by range ───────────────────────────
+  function aggregateRange(data, range) {
+    // returns: {
+    //   range, title_eyebrow, headline,
+    //   stats: [{label, value, sub}, ...],
+    //   activity: {values, opts},
+    //   trend_days,
+    //   tokens, projects, sessions_list,
+    //   sessions_opts: {title, emptyText, limit, showDate}
+    // }
+    const today = data.days[data.days.length - 1];
+
+    if (range === "daily") {
+      const prev = data.days.length >= 2 ? data.days[data.days.length - 2] : null;
+      const sessDelta = prev ? today.sessions - prev.sessions : null;
+
+      // active span: first session start → last session end
+      const sortedByStart = [...today.sessions_list]
+        .filter(s => s.start)
+        .sort((a, b) => a.start.localeCompare(b.start));
+      const firstSession = sortedByStart[0];
+      const lastSession = sortedByStart[sortedByStart.length - 1];
+      const spanStart = firstSession ? new Date(firstSession.start) : null;
+      const spanEnd = lastSession ? new Date(lastSession.end || lastSession.start) : null;
+      const spanMin = spanStart && spanEnd
+        ? Math.max(1, Math.round((spanEnd - spanStart) / 60000))
+        : 0;
+
+      // real-work tokens = output + cache_creation (excludes cache_read)
+      const workToks = workTokens(today.tokens);
+      const prevWork = prev ? workTokens(prev.tokens) : 0;
+      const workDelta = prev ? workToks - prevWork : null;
+
+      // cache hit rate
+      const hit = cacheHitRate(today.tokens);
+      const promptTotal = today.tokens.input + today.tokens.cache_read + today.tokens.cache_creation;
+
+      // top 3 sessions by tokens
+      const top3 = [...today.sessions_list]
+        .sort((a, b) => b.tokens - a.tokens)
+        .slice(0, 3);
+
+      let headline;
+      if (today.sessions === 0) {
+        headline = `<span class="accent">今天还没开始 session</span>`;
+      } else {
+        const spanPart = spanStart && spanEnd
+          ? `<span class="accent">${fmtTimeHHMM(firstSession.start)} → ${fmtTimeHHMM(lastSession.end || lastSession.start)}</span> · ${fmtMin(spanMin)} 跨度`
+          : "";
+        const topLine = top3.length
+          ? `<div class="hero-toplist">主要: ${top3.map(s =>
+              `<span class="hero-top-item">${escapeHTML(truncate(s.title, 48))}<span class="hero-top-meta"> · ${fmtMin(s.active_min)}</span></span>`
+            ).join(" <span class='hero-sep'>·</span> ")}</div>`
+          : "";
+        headline = `${today.sessions} 个 session, ${spanPart}.${topLine}`;
+      }
+
+      return {
+        range,
+        title_eyebrow: `日报 · ${monthDay(today.date)} · ${weekdayLong(today.date)}`,
+        headline,
+        stats: [
+          { label: "Sessions", value: today.sessions,
+            sub: sessDelta !== null ? formatDelta(sessDelta, "较昨日") : "—" },
+          { label: "Prompts", value: fmtInt(today.user_msgs),
+            sub: fmtInt(today.assistant_msgs) + " 次 assistant 回复" },
+          { label: "Output", value: fmtTok(workToks),
+            sub: workDelta !== null ? formatDelta(workDelta, "较昨日", fmtTok) : "output + cache write" },
+          { label: "Cache hit", value: promptTotal > 0 ? Math.round(hit * 100) + "%" : "—",
+            sub: promptTotal > 0 ? "已读 " + fmtTok(today.tokens.cache_read) : "无 prompts" },
+        ],
+        activity: {
+          kind: "bar",
+          values: today.hourly_tokens || today.hourly,
+          opts: {
+            title: "时段 token 消耗",
+            metaRight: "token 消耗 · 今日 · 灰阶 = 模型",
+            byModel: today.hourly_tokens_by_model || null,
+            byModelDateLabel: today.date,
+            modelMsgs: today.models || null,
+            fmtValue: fmtTok,
+            axisLabels: i => String(i).padStart(2, "0"),
+            peakLabel: (p, m) => `峰值 <strong>${String(p).padStart(2, "0")}:00</strong> · ${fmtTok(m)} tokens`,
+            footText: t => `共 <strong>${fmtTok(t)}</strong> tokens`,
+          }
+        },
+        trend_days: data.days.slice(-7),
+        trend_title: "近 7 日趋势",
+        tokens: today.tokens,
+        projects: attachProjectSparklines(today.projects, data.days.slice(-7)),
+        sessions_list: today.sessions_list,
+        sessions_opts: {
+          title: "今日 Sessions",
+          emptyText: "今天还没有 session",
+          showDate: false,
+        },
+        projects_title: "今日各项目用量",
+      };
+    }
+
+    // weekly = last 7 days, monthly = last 30 days
+    const n = range === "weekly" ? 7 : 30;
+    const subset = data.days.slice(-n);
+    const tokens = { input: 0, output: 0, cache_read: 0, cache_creation: 0, total: 0 };
+    const projAccum = new Map();
+    const allSessions = [];
+    let totalSessions = 0, totalUser = 0, totalAssistant = 0, activeDays = 0;
+
+    for (const d of subset) {
+      totalSessions += d.sessions;
+      totalUser += d.user_msgs;
+      totalAssistant += d.assistant_msgs;
+      if (d.sessions > 0) activeDays++;
+      for (const k of Object.keys(tokens)) tokens[k] += d.tokens[k] || 0;
+      for (const p of d.projects) {
+        const key = p.name || p.path || p.label;
+        const cur = projAccum.get(key) || { name: key, label: p.label || key, sessions: 0, tokens: 0, msgs: 0, active_min: 0, fallback: !!p.fallback };
+        cur.sessions += p.sessions;
+        cur.tokens += p.tokens;
+        cur.msgs += p.msgs;
+        cur.active_min += (p.active_min || 0);
+        projAccum.set(key, cur);
+      }
+      for (const s of d.sessions_list) allSessions.push(s);
+    }
+    const projectsRaw = [...projAccum.values()].sort((a, b) => {
+      if (!!a.fallback !== !!b.fallback) return a.fallback ? 1 : -1;  // 真项目在前, 兜底桶沉底
+      return b.tokens - a.tokens;
+    });
+    const projects = attachProjectSparklines(projectsRaw, subset);
+    allSessions.sort((a, b) => b.tokens - a.tokens);
+
+    // by-day activity: use sessions count per day (or tokens — sessions reads cleaner)
+    const dailySessions = subset.map(d => d.sessions);
+    const dailyTokens = subset.map(d => d.tokens.total);
+    const peakIdx = dailySessions.indexOf(Math.max(...dailySessions));
+    const peakDay = subset[peakIdx];
+
+    const topProject = projects[0];
+    const workToks = workTokens(tokens);
+    const hit = cacheHitRate(tokens);
+    const promptTotal = tokens.input + tokens.cache_read + tokens.cache_creation;
+
+    // top 3 sessions across the range, by tokens
+    const top3 = allSessions.slice(0, 3);
+
+    const headline = totalSessions === 0
+      ? `<span class="accent">过去 ${n} 天没有 session</span>`
+      : `${fmtInt(totalSessions)} 个 session,
+         活跃 <span class="accent">${activeDays}</span> / ${n} 天.${
+           topProject ? ` 主要在 <span class="accent">${escapeHTML(topProject.label)}</span>.` : ""
+         }${
+           top3.length
+             ? `<div class="hero-toplist">主要: ${top3.map(s =>
+                 `<span class="hero-top-item">${escapeHTML(truncate(s.title, 48))}<span class="hero-top-meta"> · ${fmtMin(s.active_min)}</span></span>`
+               ).join(" <span class='hero-sep'>·</span> ")}</div>`
+             : ""
+         }`;
+
+    const firstDate = subset[0].date;
+    const lastDate = subset[subset.length - 1].date;
+
+    return {
+      range,
+      title_eyebrow: range === "weekly"
+        ? `周报 · ${monthDay(firstDate)} – ${monthDay(lastDate)}`
+        : `月报 · ${monthDay(firstDate)} – ${monthDay(lastDate)}`,
+      headline,
+      stats: [
+        { label: "Sessions", value: fmtInt(totalSessions),
+          sub: `${activeDays} / ${n} 个活跃日` },
+        { label: "Prompts", value: fmtInt(totalUser),
+          sub: fmtInt(totalAssistant) + " 次 assistant 回复" },
+        { label: "Output", value: fmtTok(workToks),
+          sub: activeDays > 0 ? fmtTok(workToks / activeDays) + " / 活跃日" : "—" },
+        { label: "Cache hit", value: promptTotal > 0 ? Math.round(hit * 100) + "%" : "—",
+          sub: promptTotal > 0 ? "已读 " + fmtTok(tokens.cache_read) : "无 prompts" },
+      ],
+      activity: {
+        kind: "heatmap",
+        days: subset,  // pass full days for day×hour grid
+        opts: {
+          title: range === "weekly" ? "时段 token 热力图 · 近 7 天" : "时段 token 热力图 · 近 30 天",
+          metaRight: "行 = 日期 · 列 = 24 时段 · 深浅 = token",
+          field: "hourly_tokens",
+        }
+      },
+      trend_days: subset,
+      trend_title: range === "weekly" ? "近 7 日趋势" : "近 30 日趋势",
+      tokens,
+      projects,
+      sessions_list: allSessions,
+      sessions_opts: {
+        title: range === "weekly" ? "本周 Top Sessions" : "本月 Top Sessions",
+        emptyText: `过去 ${n} 天没有 session`,
+        limit: range === "weekly" ? 10 : 15,
+        showDate: true,
+      },
+      projects_title: range === "weekly" ? "本周各项目用量" : "本月各项目用量",
+    };
+  }
+
+  // ─── Render ─────────────────────────────────────────
+  // model name → grey-scale fill (Vercel DNA: no color)
+  const MODEL_SHADES = ["#171717", "#4d4d4d", "#8a8a8a", "#b8b8b8", "#d4d4d4", "#ebebeb"];
+  function shortModel(m) {
+    if (!m) return "?";
+    if (m.startsWith("claude-opus-4-7"))   return "Opus 4.7";
+    if (m.startsWith("claude-opus-4-8"))   return "Opus 4.8";
+    if (m.startsWith("claude-opus"))       return "Opus";
+    if (m.startsWith("claude-sonnet-4-6")) return "Sonnet 4.6";
+    if (m.startsWith("claude-sonnet"))     return "Sonnet";
+    if (m.startsWith("claude-haiku"))      return "Haiku";
+    if (m.startsWith("glm-"))              return m.replace("glm-", "GLM ");
+    if (m === "<synthetic>")               return "synthetic";
+    return m;
+  }
+
+  function renderActivityChart(values, opts) {
+    // "Waveform timeline" — narrow vertical lines instead of fat bars.
+    // Same data, more like an audio waveform / ECG strip.
+    const fmtVal = opts.fmtValue || fmtInt;
+    const hourlyByModel = opts.byModel || null;
+    const modelTotals = new Map();
+    if (hourlyByModel) {
+      hourlyByModel.forEach(h => {
+        Object.entries(h || {}).forEach(([m, c]) => modelTotals.set(m, (modelTotals.get(m) || 0) + c));
+      });
+    }
+    const orderedModels = [...modelTotals.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
+    const modelShade = m => {
+      const idx = orderedModels.indexOf(m);
+      return MODEL_SHADES[Math.min(idx, MODEL_SHADES.length - 1)] || "#d4d4d4";
+    };
+
+    const max = Math.max(1, ...values);
+    const peak = values.indexOf(max);
+    const n = values.length;
+
+    // canvas — much shorter than old chart, panoramic feel
+    const W = 720, H = 110;
+    const padX = 12;
+    const padTop = 26;
+    const padBot = 26;
+    const plotH = H - padTop - padBot;
+    const baseY = H - padBot;
+
+    // each hour is a slot; lines are thin & evenly distributed
+    const slotW = (W - padX * 2) / n;
+    const lineW = Math.max(3, Math.min(6, slotW - 4));
+
+    let body = "";
+
+    // baseline (zero line — runs across the whole strip)
+    body += `<line x1="${padX}" y1="${baseY}" x2="${W - padX}" y2="${baseY}"
+      stroke="var(--border)" stroke-width="1"/>`;
+
+    // 24 vertical lines
+    values.forEach((v, i) => {
+      const cx = padX + i * slotW + slotW / 2;
+      const isPeak = i === peak && v > 0;
+
+      if (v === 0) {
+        // tiny baseline dot — "this hour had no activity"
+        body += `<circle cx="${cx}" cy="${baseY}" r="1.5"
+          fill="var(--g1)" class="bar-cell" data-idx="${i}"/>`;
+      } else if (hourlyByModel && hourlyByModel[i] && Object.keys(hourlyByModel[i]).length > 0) {
+        const segs = Object.entries(hourlyByModel[i]).sort((a, b) =>
+          orderedModels.indexOf(a[0]) - orderedModels.indexOf(b[0])
+        );
+        let yCursor = baseY;
+        segs.forEach(([m, c]) => {
+          const segH = (c / max) * plotH;
+          if (segH < 0.5) return;
+          body += `<line x1="${cx}" y1="${yCursor}" x2="${cx}" y2="${yCursor - segH}"
+            stroke="${modelShade(m)}" stroke-width="${lineW}"
+            stroke-linecap="butt" class="bar-cell" data-idx="${i}"/>`;
+          yCursor -= segH;
+        });
+      } else {
+        const totalH = (v / max) * plotH;
+        const fill = isPeak ? "var(--g5)" : "var(--g4)";
+        body += `<line x1="${cx}" y1="${baseY}" x2="${cx}" y2="${baseY - totalH}"
+          stroke="${fill}" stroke-width="${lineW}"
+          stroke-linecap="butt" class="bar-cell" data-idx="${i}"/>`;
+      }
+
+      // peak marker — small dot above + value
+      if (isPeak && v > 0) {
+        const totalH = (v / max) * plotH;
+        const dotY = baseY - totalH - 8;
+        body += `<circle cx="${cx}" cy="${dotY}" r="3"
+          fill="var(--g5)"/>`;
+        body += `<text x="${cx}" y="${dotY - 6}" text-anchor="middle"
+          font-family="JetBrains Mono" font-size="10" font-weight="500"
+          fill="var(--text-primary)">${fmtVal(v)}</text>`;
+      }
+
+      // full-column invisible hit area
+      body += `<rect x="${padX + i * slotW}" y="0"
+        width="${slotW}" height="${H}"
+        fill="transparent" class="bar-hit" data-idx="${i}"
+        style="cursor:pointer"/>`;
+    });
+
+    // tick marks + labels at 0 / 6 / 12 / 18 (24:00 = end)
+    let ticks = "";
+    [0, 6, 12, 18, 24].forEach(h => {
+      const x = (h < 24)
+        ? padX + h * slotW + slotW / 2
+        : W - padX;
+      // tick mark below baseline
+      ticks += `<line x1="${x}" y1="${baseY + 1}" x2="${x}" y2="${baseY + 4}"
+        stroke="var(--text-quaternary)" stroke-width="1"/>`;
+      const anchor = h === 0 ? "start" : (h === 24 ? "end" : "middle");
+      ticks += `<text x="${x}" y="${H - 6}" text-anchor="${anchor}"
+        font-family="JetBrains Mono" font-size="10"
+        fill="var(--text-tertiary)">${String(h).padStart(2, "0")}:00</text>`;
+    });
+
+    const total = values.reduce((a, b) => a + b, 0);
+
+    // Model breakdown — surfaces each model's token consumption + usage behavior.
+    // Rich layout (share bar + per-model token / share / calls / avg) when call
+    // counts are provided via opts.modelMsgs; otherwise falls back to pill legend.
+    let legendHTML = "";
+    if (hourlyByModel && orderedModels.length > 0) {
+      const modelMsgs = opts.modelMsgs || null;
+      const grandTotal = orderedModels.reduce((s, m) => s + (modelTotals.get(m) || 0), 0) || 1;
+
+      if (modelMsgs) {
+        const segs = orderedModels.map(m =>
+          `<span style="width:${((modelTotals.get(m) || 0) / grandTotal * 100).toFixed(2)}%;
+            background:${modelShade(m)}" title="${escapeHTML(shortModel(m))}"></span>`
+        ).join("");
+        const rows = orderedModels.map(m => {
+          const tok = modelTotals.get(m) || 0;
+          const msgs = modelMsgs[m] || 0;
+          const share = Math.round(tok / grandTotal * 100);
+          const avg = msgs > 0 ? fmtTok(Math.round(tok / msgs)) : "—";
+          return `<div class="mu-row">
+            <span class="mu-name"><span class="legend-sw" style="background:${modelShade(m)}"></span>${escapeHTML(shortModel(m))}</span>
+            <span class="mu-tok">${fmtTok(tok)}</span>
+            <span class="mu-share">${share}%</span>
+            <span class="mu-meta">${fmtInt(msgs)} 次 · ${avg}/次</span>
+          </div>`;
+        }).join("");
+        legendHTML = `<div class="model-usage">
+          <div class="model-usage-bar">${segs}</div>
+          ${rows}
+        </div>`;
+      } else {
+        legendHTML = `<div class="bar-model-legend">${orderedModels.map(m => {
+          const cnt = modelTotals.get(m);
+          return `<span class="legend-pill">
+            <span class="legend-sw" style="background:${modelShade(m)}"></span>
+            ${escapeHTML(shortModel(m))}
+            <span class="legend-pill-val">${fmtVal(cnt)}</span>
+          </span>`;
+        }).join("")}</div>`;
+      }
+    }
+
+    const byModelJSON = hourlyByModel
+      ? `data-by-model='${escapeAttr(JSON.stringify(hourlyByModel))}'`
+      : "";
+    const dateAttr = opts.byModelDateLabel ? `data-date="${opts.byModelDateLabel}"` : "";
+
+    return `
+      <div class="card section reveal" ${byModelJSON} ${dateAttr} data-chart="hourly-bar">
+        <div class="card-head">
+          <h2>${opts.title}</h2>
+          <span class="meta">${opts.metaRight}</span>
+        </div>
+        <div class="chart-waveform">
+          <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
+            aria-label="${opts.title}">${body}${ticks}</svg>
+        </div>
+        ${legendHTML}
+        <div class="chart-foot">
+          <span>${opts.peakLabel(peak, max)}</span>
+          <span>${opts.footText(total)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function escapeAttr(s) {
+    return String(s).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+  }
+
+  function renderActivityHeatmap(days, opts) {
+    // days: [{date, weekday, hourly:[24]}, ...] in chronological order
+    // Remap the working `hourly` to the chosen metric (default message counts,
+    // or hourly_tokens for token-consumption mode) so all logic below is unit-agnostic.
+    const field = opts.field || "hourly";
+    const isTok = opts.field === "hourly_tokens";
+    const fmtVal = isTok ? fmtTok : fmtInt;
+    const unitWord = isTok ? "tokens" : "条";
+    const avgLabel = isTok ? "日均消耗" : "日均消息";
+    days = days.map(d => ({ ...d, hourly: d[field] || d.hourly || [] }));
+    const n = days.length;
+    if (n === 0) {
+      return `<div class="card section reveal">
+        <div class="card-head"><h2>${opts.title}</h2><span class="meta">${opts.metaRight}</span></div>
+        <div class="loading">无数据</div>
+      </div>`;
+    }
+    const cellH = n > 14 ? 10 : 14;
+    const cellW = 14;
+    const gap = 2;
+    const padLeft = 38;
+    const padTop = 18;
+    const padBottom = 14;
+    const padRight = 4;
+    const gridW = 24 * (cellW + gap) - gap;
+    const W = padLeft + gridW + padRight;
+    const H = padTop + n * (cellH + gap) - gap + padBottom;
+
+    // find max for color binning
+    let max = 0, totalMsgs = 0, peakCell = null;
+    days.forEach((d, di) => {
+      d.hourly.forEach((v, hi) => {
+        totalMsgs += v;
+        if (v > max) { max = v; peakCell = { di, hi, v, d }; }
+      });
+    });
+    if (max === 0) max = 1;
+
+    const colorFor = v => {
+      if (v === 0) return "#f5f5f5";
+      const pct = v / max;
+      if (pct < 0.25) return "#ebebeb";
+      if (pct < 0.5)  return "#d4d4d4";
+      if (pct < 0.75) return "#8a8a8a";
+      return "#171717";
+    };
+
+    // hour axis labels (top)
+    let hAxis = "";
+    [0, 6, 12, 18].forEach(h => {
+      const x = padLeft + h * (cellW + gap) + cellW / 2;
+      hAxis += `<text x="${x}" y="${padTop - 6}" text-anchor="middle"
+        font-family="JetBrains Mono" font-size="9" fill="var(--text-tertiary)">${String(h).padStart(2,'0')}</text>`;
+    });
+
+    // day axis labels (left) — show every-other-row for monthly
+    let dAxis = "";
+    const wkMap = { Mon:"一", Tue:"二", Wed:"三", Thu:"四", Fri:"五", Sat:"六", Sun:"日" };
+    days.forEach((d, di) => {
+      if (n > 14 && di % 2 === 1) return;  // skip every other for monthly
+      const y = padTop + di * (cellH + gap) + cellH / 2 + 3;
+      const wk = wkMap[d.weekday] || d.weekday[0];
+      const label = n <= 7 ? `${wk} ${d.date.slice(5)}` : d.date.slice(5);
+      dAxis += `<text x="${padLeft - 6}" y="${y}" text-anchor="end"
+        font-family="JetBrains Mono" font-size="9" fill="var(--text-tertiary)">${label}</text>`;
+    });
+
+    // cells
+    let cells = "";
+    days.forEach((d, di) => {
+      for (let h = 0; h < 24; h++) {
+        const v = d.hourly[h] || 0;
+        const x = padLeft + h * (cellW + gap);
+        const y = padTop + di * (cellH + gap);
+        const isPeak = peakCell && peakCell.di === di && peakCell.hi === h;
+        const stroke = isPeak ? `stroke="var(--text-primary)" stroke-width="1.5"` : "";
+        cells += `<rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" rx="2"
+          fill="${colorFor(v)}" ${stroke}
+          class="heatmap-cell"
+          data-hm-date="${d.date}" data-hm-hour="${h}"
+          style="cursor:pointer">
+          <title>${d.date} ${String(h).padStart(2,'0')}:00 · ${fmtVal(v)} ${unitWord}</title>
+          </rect>`;
+      }
+    });
+
+    // ─── Right-side rhythm panel — derive insights from the same heatmap data
+    const activeDays = days.filter(d => d.hourly.some(v => v > 0)).length;
+    const totalDays = days.length;
+    const avgMsgs = activeDays > 0 ? Math.round(totalMsgs / activeDays) : 0;
+
+    // longest consecutive active streak
+    let maxStreak = 0, curStreak = 0;
+    days.forEach(d => {
+      const active = d.hourly.some(v => v > 0);
+      if (active) { curStreak++; maxStreak = Math.max(maxStreak, curStreak); }
+      else curStreak = 0;
+    });
+
+    // time-of-day buckets: morning(6-12) / afternoon(12-18) / evening(18-24) / night(0-6)
+    const buckets = { morning: 0, afternoon: 0, evening: 0, night: 0 };
+    days.forEach(d => {
+      d.hourly.forEach((v, h) => {
+        if (h >= 6 && h < 12) buckets.morning += v;
+        else if (h >= 12 && h < 18) buckets.afternoon += v;
+        else if (h >= 18 && h < 24) buckets.evening += v;
+        else buckets.night += v;
+      });
+    });
+    const bucketTotal = buckets.morning + buckets.afternoon + buckets.evening + buckets.night;
+    const pct = v => bucketTotal > 0 ? Math.round((v / bucketTotal) * 100) : 0;
+    const pMorning = pct(buckets.morning);
+    const pAfternoon = pct(buckets.afternoon);
+    const pEvening = pct(buckets.evening);
+    const pNight = pct(buckets.night);
+
+    const sortedBuckets = [
+      ["上午", pMorning],
+      ["下午", pAfternoon],
+      ["晚上", pEvening],
+      ["深夜", pNight],
+    ].sort((a, b) => b[1] - a[1]);
+
+    // burst vs steady
+    const dayTotals = days.map(d => d.hourly.reduce((a, b) => a + b, 0));
+    const dayMax = Math.max(...dayTotals);
+    const dayAvg = activeDays > 0 ? totalMsgs / activeDays : 0;
+    const burstRatio = dayAvg > 0 ? dayMax / dayAvg : 0;
+    const inactiveDays = totalDays - activeDays;
+
+    const isMonthly = totalDays > 14;
+    const periodWord = isMonthly ? "这个月" : "这周";
+
+    // ─── Narrative builder — sentences, story-style
+    function buildNarrative() {
+      if (bucketTotal === 0) return `<p>${periodWord}没有活动记录。</p>`;
+      const sentences = [];
+
+      // ── Weekly: 2 sentences total
+      if (!isMonthly) {
+        // sentence 1: dominant bucket + peak day (compressed)
+        let line1;
+        if (sortedBuckets[0][1] >= 55) {
+          line1 = `<b>${sortedBuckets[0][0]}集中型</b>（${sortedBuckets[0][1]}%）`;
+        } else if (sortedBuckets[0][1] >= 40) {
+          line1 = `主<b>${sortedBuckets[0][0]}</b>（${sortedBuckets[0][1]}%）+ ${sortedBuckets[1][0]}（${sortedBuckets[1][1]}%）`;
+        } else {
+          line1 = `时段分布均匀（${sortedBuckets[0][0]} ${sortedBuckets[0][1]}% / ${sortedBuckets[1][0]} ${sortedBuckets[1][1]}%）`;
+        }
+        if (peakCell) {
+          const peakDayShare = totalMsgs > 0 ? Math.round((dayTotals[peakCell.di] / totalMsgs) * 100) : 0;
+          line1 += `，单日峰值 <b>${peakCell.d.date.slice(5)}</b>（占 ${peakDayShare}%）`;
+        }
+        sentences.push(line1 + "。");
+
+        // sentence 2: burst + dry days
+        let tail;
+        if (burstRatio >= 3) tail = `节奏偏<b>爆发</b>`;
+        else if (burstRatio >= 1.8) tail = `节奏偏波动`;
+        else tail = `节奏<b>平稳</b>`;
+        if (inactiveDays > 0) tail += `，其中 ${inactiveDays} 天沉寂`;
+        tail += "。";
+        sentences.push(tail);
+
+        return sentences.map(s => `<p>${s}</p>`).join("");
+      }
+
+      // ── Monthly: 3 sentences total
+      // sentence 1: dominant bucket
+      if (sortedBuckets[0][1] >= 55) {
+        sentences.push(`<b>${sortedBuckets[0][0]}集中型</b>——${sortedBuckets[0][1]}% 的活动落在${sortedBuckets[0][0]}时段。`);
+      } else if (sortedBuckets[0][1] >= 40) {
+        sentences.push(`主要时段是<b>${sortedBuckets[0][0]}</b>（${sortedBuckets[0][1]}%），${sortedBuckets[1][0]}是次活跃段（${sortedBuckets[1][1]}%）。`);
+      } else {
+        sentences.push(`时段分布相对均匀：${sortedBuckets[0][0]} ${sortedBuckets[0][1]}% / ${sortedBuckets[1][0]} ${sortedBuckets[1][1]}% / ${sortedBuckets[2][0]} ${sortedBuckets[2][1]}%。`);
+      }
+      // sentence 2: peak day
+      if (peakCell) {
+        const peakDayTotal = dayTotals[peakCell.di];
+        const peakDayShare = totalMsgs > 0 ? Math.round((peakDayTotal / totalMsgs) * 100) : 0;
+        sentences.push(`单日峰值在 <b>${peakCell.d.date.slice(5)}</b>（${fmtVal(peakDayTotal)}${isTok ? " tokens" : " 条"}），约占${periodWord}总活动的 ${peakDayShare}%。`);
+      }
+      // sentence 3: burst + streak
+      if (burstRatio >= 3) {
+        sentences.push(`整体偏<b>爆发型</b>，单日峰值是均值的 ${burstRatio.toFixed(1)}×；连续活跃最长 ${maxStreak} 天。`);
+      } else if (burstRatio >= 1.8) {
+        sentences.push(`节奏偏波动，峰值 ${burstRatio.toFixed(1)}× 日均；连续最长 ${maxStreak} 天。`);
+      } else {
+        sentences.push(`节奏<b>平稳</b>，单日波动小；连续最长 ${maxStreak} 天。`);
+      }
+      return sentences.map(s => `<p>${s}</p>`).join("");
+    }
+    const narrativeHTML = buildNarrative();
+
+    // ─── Stats panel content varies by period
+    let statsHTML;
+    if (isMonthly) {
+      // Monthly — full layout: 4 stats + bucket bar + 3-line narrative
+      statsHTML = `
+        <div class="rhythm-stat">
+          <div class="rhythm-label">活跃日</div>
+          <div class="rhythm-value">${activeDays}<span class="rhythm-unit"> / ${totalDays}</span></div>
+        </div>
+        <div class="rhythm-stat">
+          <div class="rhythm-label">${avgLabel}</div>
+          <div class="rhythm-value">${fmtVal(avgMsgs)}<span class="rhythm-unit">${isTok ? "" : " 条"}</span></div>
+        </div>
+        <div class="rhythm-stat">
+          <div class="rhythm-label">最长连续</div>
+          <div class="rhythm-value">${maxStreak}<span class="rhythm-unit"> 天</span></div>
+        </div>
+        ${peakCell ? `
+          <div class="rhythm-stat">
+            <div class="rhythm-label">峰值时刻</div>
+            <div class="rhythm-value-mono">${peakCell.d.date.slice(5)} · ${String(peakCell.hi).padStart(2,'0')}:00</div>
+            <div class="rhythm-sub">${fmtVal(peakCell.v)} ${isTok ? "tokens" : "条 assistant 回复"}</div>
+          </div>
+        ` : ""}
+        <div class="rhythm-insight">
+          <div class="rhythm-bar">
+            <span class="rhythm-bar-seg" style="width:${pMorning}%" title="上午 ${pMorning}%"></span>
+            <span class="rhythm-bar-seg rb-afternoon" style="width:${pAfternoon}%" title="下午 ${pAfternoon}%"></span>
+            <span class="rhythm-bar-seg rb-evening" style="width:${pEvening}%" title="晚上 ${pEvening}%"></span>
+            <span class="rhythm-bar-seg rb-night" style="width:${pNight}%" title="深夜 ${pNight}%"></span>
+          </div>
+          <div class="rhythm-bar-legend">
+            <span>上午 <b>${pMorning}%</b></span>
+            <span>下午 <b>${pAfternoon}%</b></span>
+            <span>晚上 <b>${pEvening}%</b></span>
+            <span>深夜 <b>${pNight}%</b></span>
+          </div>
+          <div class="rhythm-narrative">${narrativeHTML}</div>
+        </div>
+      `;
+    } else {
+      // Weekly — heatmap is short (~110px). Compact: 2 inline stats + narrative
+      statsHTML = `
+        <div class="rhythm-row">
+          <div class="rhythm-stat">
+            <div class="rhythm-label">活跃日</div>
+            <div class="rhythm-value">${activeDays}<span class="rhythm-unit"> / ${totalDays}</span></div>
+          </div>
+          <div class="rhythm-stat">
+            <div class="rhythm-label">${avgLabel}</div>
+            <div class="rhythm-value">${fmtVal(avgMsgs)}<span class="rhythm-unit"></span></div>
+          </div>
+        </div>
+        ${peakCell ? `
+          <div class="rhythm-peak-inline">
+            <span class="rhythm-label">峰值</span>
+            <span class="rhythm-value-mono">${peakCell.d.date.slice(5)} · ${String(peakCell.hi).padStart(2,'0')}:00</span>
+            <span class="rhythm-sub">${fmtVal(peakCell.v)}${isTok ? "" : " 条"}</span>
+          </div>
+        ` : ""}
+        <div class="rhythm-narrative rhythm-narrative-weekly">${narrativeHTML}</div>
+      `;
+    }
+
+    return `
+      <div class="card section reveal">
+        <div class="card-head">
+          <h2>${opts.title}</h2>
+          <span class="meta">${opts.metaRight}</span>
+        </div>
+        <div class="heatmap-row ${isMonthly ? 'is-monthly' : 'is-weekly'}">
+          <div class="heatmap-wrap">
+            <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet"
+              style="width:100%; height:auto; max-width:${W}px;">
+              ${hAxis}
+              ${dAxis}
+              ${cells}
+            </svg>
+            <div class="heatmap-legend">
+              <span>少</span>
+              <span class="sw" style="background:#f5f5f5"></span>
+              <span class="sw" style="background:#ebebeb"></span>
+              <span class="sw" style="background:#d4d4d4"></span>
+              <span class="sw" style="background:#8a8a8a"></span>
+              <span class="sw" style="background:#171717"></span>
+              <span>多</span>
+            </div>
+          </div>
+          <div class="heatmap-stats">${statsHTML}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderSparkline(values, label, valLabel, axisLabels, days) {
+    // Uses non-scaling-stroke for the line so it doesn't get thicker when stretched,
+    // and renders dots as absolutely-positioned divs OUTSIDE the SVG so they stay
+    // perfectly circular regardless of container width.
+    const W = 360, H = 56, pad = 4;
+    const max = Math.max(1, ...values);
+    const step = (W - pad * 2) / Math.max(1, values.length - 1);
+    const pts = values.map((v, i) => {
+      const x = pad + i * step;
+      const y = H - pad - (v / max) * (H - pad * 2);
+      return [x, y];
+    });
+    const path = pts.map((p, i) => (i === 0 ? "M" : "L") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+    const area = path + ` L ${pts[pts.length - 1][0]} ${H - pad} L ${pts[0][0]} ${H - pad} Z`;
+    const safeId = "sparkfill-" + label.replace(/[^a-zA-Z0-9]/g, "");
+
+    // Dots as HTML divs (immune to viewBox stretching)
+    const dotsHTML = pts.map(([x, y], i) => {
+      const last = i === pts.length - 1;
+      const xPct = (x / W) * 100;
+      const yPct = (y / H) * 100;
+      const day = days?.[i];
+      const cls = ["spark-dot"];
+      if (last) cls.push("is-last");
+      if (day) cls.push("is-clickable");
+      const dateAttr = day ? `data-date="${day.date}"` : "";
+      return `<div class="${cls.join(" ")}" style="left:${xPct}%; top:${yPct}%;" ${dateAttr}></div>`;
+    }).join("");
+
+    return `
+      <div class="spark">
+        <div class="spark-row">
+          <span class="spark-name">${label}</span>
+          <span class="spark-val">${valLabel}</span>
+        </div>
+        <div class="spark-container">
+          <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="${safeId}" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="rgba(23,23,23,0.12)"/>
+                <stop offset="100%" stop-color="rgba(23,23,23,0)"/>
+              </linearGradient>
+            </defs>
+            <path d="${area}" fill="url(#${safeId})"/>
+            <path d="${path}" fill="none" stroke="var(--g5)" stroke-width="1.5"
+              stroke-linejoin="round" stroke-linecap="round"
+              vector-effect="non-scaling-stroke"/>
+          </svg>
+          <div class="spark-dots">${dotsHTML}</div>
+        </div>
+        <div class="spark-axis">
+          <span>${axisLabels[0]}</span>
+          <span>${axisLabels[1]}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function buildTrendInsight(days) {
+    const tokens = days.map(d => d.tokens.total);
+    const sessions = days.map(d => d.sessions);
+    const totalTokens = tokens.reduce((a, b) => a + b, 0);
+    const totalSessions = sessions.reduce((a, b) => a + b, 0);
+    if (totalSessions === 0) return "";
+
+    const peakIdx = sessions.indexOf(Math.max(...sessions));
+    const peakDay = days[peakIdx];
+    const dryDays = days.filter(d => d.sessions === 0).length;
+    const peakHours = Math.round(peakDay.sessions_list.reduce((a, s) => a + s.active_min, 0) / 60);
+    const peakProj = (peakDay.projects[0] || {}).label || "";
+    const peakTokensShare = totalTokens > 0
+      ? Math.round((peakDay.tokens.total / totalTokens) * 100) : 0;
+    const half = Math.floor(days.length / 2);
+    const firstHalfSes = sessions.slice(0, half).reduce((a, v) => a + v, 0);
+    const secondHalfSes = sessions.slice(half).reduce((a, v) => a + v, 0);
+
+    const lines = [];
+    let line1 = `高潮在 <b>${peakDay.weekday} ${peakDay.date.slice(5)}</b>，${peakDay.sessions} 个 session 共 ${peakHours}h`;
+    if (peakProj) line1 += `，主线是 <b>${escapeHTML(peakProj)}</b>`;
+    line1 += `，约占${days.length === 7 ? "本周" : "本月"} ${peakTokensShare}% 的 token 用量。`;
+    lines.push(line1);
+
+    const trendBits = [];
+    if (dryDays > 0) trendBits.push(`其中 <b>${dryDays} 天</b>完全空白`);
+    if (firstHalfSes > 0 && secondHalfSes > 0) {
+      if (secondHalfSes > firstHalfSes * 1.4) trendBits.push(`整体呈<b>上升</b>趋势（前半段 ${firstHalfSes} → 后半段 ${secondHalfSes} session）`);
+      else if (firstHalfSes > secondHalfSes * 1.4) trendBits.push(`整体呈<b>回落</b>趋势（前半段 ${firstHalfSes} → 后半段 ${secondHalfSes} session）`);
+    }
+    if (trendBits.length) lines.push(trendBits.join("，") + "。");
+
+    return lines.map(l => `<p>${l}</p>`).join("");
+  }
+
+  function renderTrend(days, title) {
+    const tokens = days.map(d => d.tokens.total);
+    const sessions = days.map(d => d.sessions);
+    const prompts = days.map(d => d.user_msgs);
+    const totalTokens = tokens.reduce((a, b) => a + b, 0);
+    const totalSessions = sessions.reduce((a, b) => a + b, 0);
+    const totalPrompts = prompts.reduce((a, b) => a + b, 0);
+    const axisFirst = days[0].weekday + " " + days[0].date.slice(5);
+    const axisLast = days[days.length - 1].weekday + " " + days[days.length - 1].date.slice(5);
+
+    return `
+      <div class="card reveal">
+        <div class="card-head">
+          <h2>${title}</h2>
+          <span class="meta">${axisFirst} → ${axisLast}</span>
+        </div>
+        ${renderSparkline(tokens, "Tokens", "总计 " + fmtTok(totalTokens), [axisFirst, axisLast], days)}
+        ${renderSparkline(sessions, "Sessions", "总计 " + fmtInt(totalSessions), [axisFirst, axisLast], days)}
+        ${renderSparkline(prompts, "Prompts", "总计 " + fmtInt(totalPrompts), [axisFirst, axisLast], days)}
+      </div>
+    `;
+  }
+
+  function renderTokenMix(tk, sideInsightHTML) {
+    const segs = [
+      { key: "output",         name: "Output",      val: tk.output || 0,         color: "var(--g5)" },
+      { key: "cache_creation", name: "Cache write", val: tk.cache_creation || 0, color: "var(--g3)" },
+      { key: "input",          name: "Input",       val: tk.input || 0,          color: "var(--g4)" },
+    ];
+    const computeTotal = segs.reduce((a, s) => a + s.val, 0);
+    const safeTotal = computeTotal || 1;
+    const bar = segs.map(s => {
+      const pct = (s.val / safeTotal) * 100;
+      const wide = pct > 12;
+      return `<div class="mix-seg" style="width:${pct}%; background:${s.color}; color:#fff;"
+              title="${s.name}: ${fmtTok(s.val)} (${pct.toFixed(1)}%)">
+              ${wide ? s.name : ""}</div>`;
+    }).join("");
+    const legend = segs.map(s => {
+      const pct = (s.val / safeTotal) * 100;
+      return `
+        <div class="mix-legend-item">
+          <span class="sw" style="background:${s.color}"></span>
+          <span class="name">${s.name}</span>
+          <span class="val">${fmtTok(s.val)} <span style="color:var(--text-tertiary);">${pct.toFixed(0)}%</span></span>
+        </div>
+      `;
+    }).join("");
+
+    // One-line insight selected from data
+    const insight = buildTokenInsight(tk, segs, computeTotal);
+
+    const sideBlock = sideInsightHTML ? `
+      <div class="mix-side-insight">
+        <div class="msi-label">← 近 N 日趋势</div>
+        ${sideInsightHTML}
+      </div>
+    `.replace("近 N 日趋势", "近期趋势") : "";
+
+    return `
+      <div class="card reveal">
+        <div class="card-head">
+          <h2>Token 用量构成</h2>
+          <span class="meta">总计 · ${fmtTok(computeTotal)} · 不含 cache_read</span>
+        </div>
+        <div class="mix">
+          <div class="mix-bar">${bar}</div>
+          <div class="mix-legend">${legend}</div>
+          ${insight ? `<div class="mix-insight">${insight}</div>` : ""}
+        </div>
+        ${sideBlock}
+      </div>
+    `;
+  }
+
+  function buildTokenInsight(tk, segs, computeTotal) {
+    if (computeTotal < 1) return "";
+    const output = tk.output || 0;
+    const cacheW = tk.cache_creation || 0;
+    const cacheR = tk.cache_read || 0;
+    const input = tk.input || 0;
+    const promptTotal = input + cacheR + cacheW;
+    const hit = promptTotal > 0 ? cacheR / promptTotal : 0;
+    const outputPct = output / computeTotal;
+    const cacheWPct = cacheW / computeTotal;
+
+    // Priority: highest-signal observation first
+    if (hit >= 0.9 && cacheR > 50_000_000) {
+      return `<b>Cache hit ${Math.round(hit * 100)}%</b> · ${fmtTok(cacheR)} 命中缓存，没重读相当于<b>省了 ${fmtTok(cacheR * 0.9 / 1000)}k 次重新解析</b>。`;
+    }
+    if (cacheWPct > 0.6) {
+      return `<b>${Math.round(cacheWPct * 100)}% 在写 cache</b> · 今天主要在加载新上下文（读文件、装载 skills、扫历史），真正 output 仅 ${Math.round(outputPct * 100)}%。`;
+    }
+    if (outputPct > 0.4) {
+      return `<b>Output 占 ${Math.round(outputPct * 100)}%</b> · 今天产出密度高，对话/工具调用都在生成内容。`;
+    }
+    if (outputPct < 0.05 && cacheWPct < 0.2) {
+      return `<b>${Math.round((input / computeTotal) * 100)}% 是 input</b> · 今天主要在大量重读旧上下文，建议看看哪些 prompt 没命中 cache。`;
+    }
+    return `Output ${fmtTok(output)} · Cache write ${fmtTok(cacheW)} · Input ${fmtTok(input)}。`;
+  }
+
+  function renderProjects(projects, range) {
+    if (!projects.length) return "";
+    const isDaily = range === "daily";
+    const showStamps = !isDaily;
+
+    const renderCard = (p, globalIdx) => {
+      const latestTitle = p._latest_title || "";
+      const isRanked = showStamps && globalIdx < 3 && !p.fallback;
+      const rankClass = isRanked ? `is-rank-${globalIdx + 1}` : "";
+      const stampHTML = isRanked ? `
+        <div class="folder-stamp rank-${globalIdx + 1}" aria-hidden="true">
+          <span class="folder-stamp-rank">${globalIdx + 1}</span>
+          <span class="folder-stamp-label">Top</span>
+        </div>
+      ` : "";
+      return `
+        <div class="folder-card ${rankClass} ${p.fallback ? "is-fallback" : ""}" data-project="${escapeAttr(p.name || p.label)}">
+          <div class="folder-thumb">
+            <div class="folder-thumb-text">${escapeHTML(latestTitle || "—")}</div>
+          </div>
+          <div class="folder-name">${escapeHTML(p.label)}</div>
+          <div class="folder-duration">${fmtTok(p.tokens)} <span class="folder-unit">tokens</span></div>
+          <div class="folder-meta">${p.sessions} 个 session · 活跃 ${fmtMin(p.active_min || 0)}</div>
+          <div class="folder-corner"></div>
+          ${stampHTML}
+          <div class="folder-details" data-loaded="0"></div>
+        </div>
+      `;
+    };
+
+    const buildRow = (items, perRow, rowClass, startIdx) => {
+      let cards = items.map((p, i) => renderCard(p, startIdx + i)).join("");
+      const empties = (perRow - items.length) % perRow;
+      for (let k = 0; k < empties; k++) {
+        cards += `<div class="folder-slot-empty" aria-hidden="true"></div>`;
+      }
+      return `<div class="shelf-row ${rowClass}">${cards}</div>`;
+    };
+
+    let rowsHTML = "";
+
+    if (isDaily) {
+      // daily: one rhythm — 4 per row
+      for (let i = 0; i < projects.length; i += 4) {
+        rowsHTML += buildRow(projects.slice(i, i + 4), 4, "row-daily", i);
+      }
+    } else {
+      // weekly / monthly: top-3 highlight row + rest 4-per-row
+      const top3 = projects.slice(0, 3);
+      const rest = projects.slice(3);
+      if (top3.length) {
+        rowsHTML += buildRow(top3, 3, "row-top3", 0);
+      }
+      for (let i = 0; i < rest.length; i += 4) {
+        rowsHTML += buildRow(rest.slice(i, i + 4), 4, "row-normal", 3 + i);
+      }
+    }
+
+    // Top-3 share insight (only for weekly/monthly where top-3 has meaning)
+    let metaInsight = "按 token 用量排序";
+    const realProjects = projects.filter(p => !p.fallback);
+    const totalTok = realProjects.reduce((a, p) => a + (p.tokens || 0), 0);
+    if (!isDaily && realProjects.length >= 4) {
+      const top3Tok = realProjects.slice(0, 3).reduce((a, p) => a + (p.tokens || 0), 0);
+      const share = totalTok > 0 ? Math.round((top3Tok / totalTok) * 100) : 0;
+      metaInsight += ` · <strong style="color:var(--text-primary)">Top 3 占 ${share}%</strong>`;
+    }
+
+    // Project-distribution narrative (2-3 lines, depending on focus/dispersion)
+    const projectInsight = buildProjectsNarrative(projects, range);
+
+    return `
+      <div class="card section reveal projects-section">
+        <div class="card-head">
+          <h2>Projects today</h2>
+          <span class="meta">${metaInsight}</span>
+        </div>
+        ${projectInsight}
+        <div class="proj-list">${rowsHTML}</div>
+      </div>
+    `;
+  }
+
+  function buildProjectsNarrative(projects, range) {
+    const real = projects.filter(p => !p.fallback);
+    const buckets = projects.filter(p => p.fallback);
+    const totalTok = projects.reduce((a, p) => a + (p.tokens || 0), 0);
+    const realTok = real.reduce((a, p) => a + (p.tokens || 0), 0);
+    if (!real.length || realTok <= 0) return "";
+    const periodWord = range === "daily" ? "今天" : (range === "weekly" ? "本周" : "本月");
+    const top1 = real[0];
+    const top1Share = top1.tokens / realTok;
+    const top1Pct = Math.round(top1Share * 100);
+
+    const sentences = [];
+
+    // sentence 1: dominance / dispersion of top-1 real project (按 token 用量 — 主指标, 兜底桶不参与)
+    if (top1Share >= 0.55) {
+      sentences.push(`${periodWord}主线明确——<b>${escapeHTML(top1.label)}</b> 一项就占了 <b>${top1Pct}%</b> 用量（${fmtTok(top1.tokens)} tokens），其余项目都是配角。`);
+    } else if (top1Share >= 0.30) {
+      const top2 = real[1];
+      if (top2 && top2.tokens > 0) {
+        const gapPct = Math.round((1 - top2.tokens / top1.tokens) * 100);
+        sentences.push(`主线 <b>${escapeHTML(top1.label)}</b>（${fmtTok(top1.tokens)} tokens, ${top1Pct}%），跟次线 <b>${escapeHTML(top2.label)}</b>（${fmtTok(top2.tokens)} tokens）拉开 ${gapPct}% 差距。`);
+      } else {
+        sentences.push(`${periodWord}主线 <b>${escapeHTML(top1.label)}</b>（${top1Pct}%）。`);
+      }
+    } else {
+      sentences.push(`${periodWord}用量分散在 <b>${real.length}</b> 个项目，Top 1（${escapeHTML(top1.label)}）仅占 <b>${top1Pct}%</b>，没有强势主线。`);
+    }
+
+    // sentence 2: 活跃时长 head/tail split (≥ 3 real projects) — 跟 token 用量互补的一条
+    if (real.length >= 3) {
+      const totalActive = real.reduce((a, p) => a + (p.active_min || 0), 0);
+      const bigProjects = real.filter(p => p.active_min >= 60);
+      const smallProjects = real.filter(p => p.active_min < 60 && p.active_min > 0);
+      if (bigProjects.length > 0 && smallProjects.length > 0 && totalActive > 0) {
+        const bigActive = bigProjects.reduce((a, p) => a + p.active_min, 0);
+        const bigShare = Math.round((bigActive / totalActive) * 100);
+        sentences.push(`<b>${bigProjects.length}</b> 个项目活跃 ≥ 1h（共占 ${bigShare}% 活跃时长），其余 <b>${smallProjects.length}</b> 个是零碎触碰（< 1h）。`);
+      }
+    }
+
+    // sentence 3: 诚实披露未归类占比 (兜底桶不进主线, 但要说清楚跑哪了)
+    if (buckets.length && totalTok > 0) {
+      const bucketTok = buckets.reduce((a, p) => a + (p.tokens || 0), 0);
+      const bucketPct = Math.round((bucketTok / totalTok) * 100);
+      if (bucketPct >= 5) {
+        const names = buckets.slice(0, 3).map(b => escapeHTML(b.label)).join(" / ");
+        sentences.push(`<span class="insight-muted">另有 <b>${bucketPct}%</b> 用量落在未归类（${names}${buckets.length > 3 ? " 等" : ""}），不计入主线。</span>`);
+      }
+    }
+
+    if (!sentences.length) return "";
+    return `<div class="projects-insight">${sentences.map(s => `<p>${s}</p>`).join("")}</div>`;
+  }
+
+  function renderSessions(sessions_list, opts) {
+    // opts: { title, emptyText, limit, showDate }
+    const limit = opts.limit || sessions_list.length;
+    const sliced = sessions_list.slice(0, limit);
+    if (!sliced.length) {
+      return `<div class="card section reveal">
+        <div class="card-head"><h2>${opts.title}</h2><span class="meta">0</span></div>
+        <div class="loading">${opts.emptyText}</div>
+      </div>`;
+    }
+    const max = Math.max(...sliced.map(s => s.tokens), 1);
+    const rows = sliced.map(s => {
+      const pct = (s.tokens / max) * 100;
+      const branchTag = s.branch ? `<span class="tag">${escapeHTML(s.branch)}</span>` : "";
+      const timeCell = opts.showDate
+        ? fmtMonthDay(s.start)
+        : fmtTimeHHMM(s.start);
+      const timeSub = opts.showDate
+        ? `<span class="sub">${fmtTimeHHMM(s.start)}</span>`
+        : "";
+      return `
+        <div class="session-row is-drill" data-sid="${escapeHTML(s.id)}" data-date="${(s.start || '').slice(0, 10)}">
+          <div class="session-time">${timeCell}${timeSub}</div>
+          <div class="session-main">
+            <div class="session-title">${escapeHTML(s.title)}</div>
+            <div class="session-meta">
+              <span>${escapeHTML(s.cwd_label)}</span>
+              ${branchTag}
+              <span>${fmtMin(s.active_min)}</span>
+            </div>
+          </div>
+          <div class="session-bar-wrap">
+            <div class="session-bar" style="width:${pct.toFixed(1)}%"></div>
+          </div>
+          <div class="session-tokens">
+            ${fmtTok(s.tokens)}
+            <span class="sub">tokens</span>
+          </div>
+        </div>
+      `;
+    }).join("");
+    const metaCount = limit < sessions_list.length
+      ? `前 ${limit} / 共 ${sessions_list.length}`
+      : `${sliced.length} 个 session`;
+    return `
+      <div class="card section reveal">
+        <div class="card-head">
+          <h2>${opts.title}</h2>
+          <span class="meta">${metaCount}</span>
+        </div>
+        ${rows}
+      </div>
+    `;
+  }
+
+  function escapeHTML(s) {
+    return String(s || "").replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  // ─── Session drill-down: 点 session 行 → 逐轮解剖 ───
+  function fmtTurnTok(v) {
+    if (v >= 1e6) return (v / 1e6).toFixed(2) + "M";
+    if (v >= 1e3) return Math.round(v / 1e3) + "K";
+    return String(v);
+  }
+  function renderTurns(data) {
+    const turns = data.turns || [];
+    if (!turns.length) return `<div class="drill-empty">这天该 session 没有可解析的轮次</div>`;
+    const max = Math.max(...turns.map(t => t.tokens), 1);
+    const tier = (tk) => {
+      if (!tk) return "t-faint";
+      const r = tk / max;
+      if (r >= 0.6) return "t-spike";
+      if (r >= 0.25) return "t-mid";
+      if (r >= 0.08) return "t-low";
+      return "t-faint";
+    };
+    const rows = turns.map(t => {
+      const zero = !t.tokens;
+      const allTools = Object.entries(t.tools || {}).sort((a, b) => b[1] - a[1]);
+      const tools = allTools.slice(0, 5).map(([k, v]) => `${escapeHTML(k)}${v > 1 ? "×" + v : ""}`).join(" ");
+      const allFiles = t.files || [];
+      const fileChips = allFiles.slice(0, 4).map(f => `<span class="dl-file">${escapeHTML(f)}</span>`).join("");
+      const moreFiles = allFiles.length > 4 ? `<span class="dl-more">+${allFiles.length - 4}</span>` : "";
+      const sub =
+        (fileChips ? `<span class="dl-files">${fileChips}</span>${moreFiles}` : "")
+        + (tools ? `<span class="dl-tools">${tools}</span>` : "")
+        + `<span class="dl-time">${escapeHTML(t.time)}</span>`;
+      return `<div class="turn${zero ? " is-quiet" : ""}">
+        <div class="turn-prompt">${escapeHTML(t.prompt)}</div>
+        <div class="turn-cost ${tier(t.tokens)}">${zero ? "·" : fmtTurnTok(t.tokens)}</div>
+        <div class="turn-sub">${sub}</div>
+      </div>`;
+    }).join("");
+    const cap = `${turns.length} 轮 · 当天合计 ${fmtTurnTok(data.total_tokens || 0)} · 含 cache`;
+    return `<div class="drill-cap">${cap}</div>${rows}`;
+  }
+  async function loadDrill(row) {
+    const next = row.nextElementSibling;
+    if (next && next.classList.contains("session-drill")) {  // 已展开 → 收起
+      next.remove();
+      row.classList.remove("open");
+      return;
+    }
+    row.classList.add("open");
+    const drawer = document.createElement("div");
+    drawer.className = "session-drill";
+    drawer.innerHTML = `<div class="drill-loading">读取 session…</div>`;
+    row.insertAdjacentElement("afterend", drawer);
+    const sid = row.getAttribute("data-sid");
+    const date = row.getAttribute("data-date") || "";
+    try {
+      const res = await fetch(`/api/session?sid=${encodeURIComponent(sid)}&date=${encodeURIComponent(date)}`);
+      if (!res.ok) throw new Error("http " + res.status);
+      drawer.innerHTML = renderTurns(await res.json());
+    } catch (e) {
+      drawer.innerHTML = `<div class="drill-empty">下钻需要 live server（<code>python3 cc-reports.py serve</code>）。当前是静态快照，点不动。</div>`;
+    }
+  }
+  document.addEventListener("click", (e) => {
+    const row = e.target.closest(".session-row.is-drill");
+    if (row) loadDrill(row);
+  });
+
+  function renderHeadline(agg) {
+    return `
+      <div class="hero reveal">
+        <div class="hero-eyebrow">
+          <span class="dot"></span>
+          <span>${escapeHTML(agg.title_eyebrow)}</span>
+        </div>
+        <h1 class="hero-headline">${agg.headline}</h1>
+        <div class="stat-grid">
+          ${agg.stats.map(s => `
+            <div class="stat" data-stat-key="${escapeAttr(s.label)}">
+              <div class="stat-label">${escapeHTML(s.label)} <span class="stat-info">?</span></div>
+              <div class="stat-value">${s.value}</div>
+              <div class="stat-sub">${escapeHTML(s.sub)}</div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  // Educational popover content for each hero stat
+  const STAT_EXPLAIN = {
+    "Sessions": () => `
+      <div class="popover-head">
+        <span class="popover-title">Sessions</span>
+        <span class="popover-sub">独立 cc 对话窗口数</span>
+      </div>
+      <div class="popover-body">
+        <p>一个 session 对应一次独立打开的 cc 对话，每条 prompt 都有 sessionId。新开窗口或 /resume 切换上下文会产生新 session。</p>
+        <div class="popover-section">
+          <strong>怎么看</strong>
+          <p>1–3 个 = 长时间专注一两条主线；4+ 个 = 多任务节奏，频繁开新窗口；跨多日的 session 在每一天会单独切片计数。</p>
+        </div>
+      </div>
+    `,
+    "Prompts": () => `
+      <div class="popover-head">
+        <span class="popover-title">Prompts</span>
+        <span class="popover-sub">你发给 cc 的消息条数</span>
+      </div>
+      <div class="popover-body">
+        <p>所有 <code>type=user</code> 的 message 数，不含 cc 的 assistant 回复。一次 prompt 可能触发多轮 assistant 思考 + 工具调用。</p>
+        <div class="popover-section">
+          <strong>怎么看</strong>
+          <p>跟下方 "X 次 assistant 回复" 一起看。assistant / prompt 比例高 = 你给 cc 自主探索空间多；比例 ≈ 1 = 高频指挥。</p>
+        </div>
+      </div>
+    `,
+    "Output": () => `
+      <div class="popover-head">
+        <span class="popover-title">Output</span>
+        <span class="popover-sub">cc 真实生成的 token 数</span>
+      </div>
+      <div class="popover-body">
+        <p>= <code>output_tokens</code>（最终回复）+ <code>cache_creation_input_tokens</code>（写入新缓存的部分）。<strong>不含 cache_read</strong>。</p>
+        <div class="popover-section">
+          <strong>为什么不算 cache_read</strong>
+          <p>cache_read 是 prompt 命中缓存的部分，是"读"不是"生成"，且单价只有 input 的 1/10。把它算进总数会让数字看着大但失真——你今天总 tokens 180M 但 Output 只有 6.3M，差异就是 cache_read 拉的。</p>
+        </div>
+        <div class="popover-section">
+          <strong>怎么看</strong>
+          <p>Output 直接对应 cc 做了多少"真活"——写代码、回答、思考链、工具调用结果。比 tokens 总量诚实。</p>
+        </div>
+      </div>
+    `,
+    "Cache hit": () => `
+      <div class="popover-head">
+        <span class="popover-title">Cache hit</span>
+        <span class="popover-sub">prompt 命中缓存的比例</span>
+      </div>
+      <div class="popover-body">
+        <p>Anthropic prompt caching 把对话前缀（system message / 历史对话 / 工具定义 / 加载的 skills / CLAUDE.md）缓存在服务端。下次同样前缀直接从缓存读，不重新解析。</p>
+        <p style="margin-top:8px">公式：<code>cache_read / (input + cache_read + cache_creation)</code></p>
+        <div class="popover-section">
+          <strong>为什么放在 hero</strong>
+          <p>cache_read 价格 = input 的 <strong>1/10</strong>。hit rate 97% 意味着实际花费比无缓存便宜约 <strong>8 倍</strong>。这是"cc 花得贵不贵"的真实信号。</p>
+        </div>
+        <div class="popover-section">
+          <strong>怎么看</strong>
+          <p>95%+ 配置稳省钱 · 80–90% 正常 · 60% 以下值得查原因（频繁改 CLAUDE.md / skill 切换 / 长 idle 后缓存过期）</p>
+        </div>
+      </div>
+    `,
+  };
+
+  function setupProjectClicks() {
+    document.querySelectorAll('.folder-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        // ignore clicks on tab / corner / staples bubble through
+        const opening = !card.classList.contains('is-open');
+        // close any other open folder first (one at a time)
+        document.querySelectorAll('.folder-card.is-open').forEach(c => {
+          if (c !== card) c.classList.remove('is-open');
+        });
+        card.classList.toggle('is-open');
+        if (opening) {
+          const details = card.querySelector('.folder-details');
+          if (details && details.dataset.loaded === "0") {
+            const proj = card.dataset.project;
+            details.innerHTML = buildFolderDetails(proj);
+            details.dataset.loaded = "1";
+          }
+        }
+      });
+    });
+  }
+
+  function buildFolderDetails(projectName) {
+    if (!DATA) return "";
+    const agg = aggregateRange(DATA, RANGE);
+    const sessions = (agg.sessions_list || [])
+      .filter(s => s.project === projectName);
+    if (!sessions.length) {
+      return `<div class="folder-empty">这个范围内没有 session 归到此项目</div>`;
+    }
+
+    // story-style summary
+    const total = sessions.reduce((sum, s) => sum + s.active_min, 0);
+    const longest = [...sessions].sort((a, b) => b.active_min - a.active_min)[0];
+    const dateLabels = [...new Set(sessions.map(s => s.start ? s.start.slice(0, 10) : ""))]
+      .filter(Boolean);
+    const days = dateLabels.length;
+    const summary = `<b>${sessions.length}</b> 个 session 跨 <b>${days}</b> 天，共 <b>${fmtMin(total)}</b>，最长一次「${escapeHTML(truncate(longest.title, 32))}」用了 <b>${fmtMin(longest.active_min)}</b>。`;
+
+    // per-project daily bar chart (the chart shona originally wanted "in the folder")
+    const chart = renderFolderChart(projectName, agg);
+
+    // sessions list, oldest first
+    const sorted = [...sessions].sort((a, b) => (a.start || "").localeCompare(b.start || ""));
+    const rows = sorted.map(s => `
+      <div class="folder-session">
+        <span class="fs-time">${fmtMonthDay(s.start)}</span>
+        <span class="fs-title">${escapeHTML(s.title)}</span>
+        <span class="fs-meta">${fmtMin(s.active_min)} · ${fmtTok(s.tokens)}</span>
+      </div>
+    `).join("");
+
+    return `<div class="folder-summary">${summary}</div>${chart}${rows}`;
+  }
+
+  function renderFolderChart(projectName, agg) {
+    // Aggregate per-day active_min for THIS project across the current range's days.
+    // Source: agg.trend_days (already in range) — each day has a projects[] array.
+    const days = agg.trend_days || [];
+    if (!days.length) return "";
+    const series = days.map(d => {
+      const found = (d.projects || []).find(p => p.name === projectName);
+      return found ? (found.active_min || 0) : 0;
+    });
+    const maxV = Math.max(...series, 1);
+    const totalMins = series.reduce((a, b) => a + b, 0);
+
+    const W = 320, H = 56, padX = 4, padTop = 4, padBot = 4;
+    const plotH = H - padTop - padBot;
+    const n = series.length;
+    const slotW = (W - padX * 2) / n;
+    const barW = Math.max(3, Math.min(slotW - 3, 16));
+
+    let bars = "";
+    series.forEach((v, i) => {
+      const cx = padX + i * slotW + slotW / 2;
+      const h = v === 0 ? 1.5 : Math.max(1.5, (v / maxV) * plotH);
+      const y = H - padBot - h;
+      const fill = v === 0 ? "rgba(0,0,0,0.10)"
+                          : (i === n - 1 ? "rgba(0,0,0,0.85)" : "rgba(0,0,0,0.55)");
+      bars += `<rect x="${cx - barW / 2}" y="${y}"
+        width="${barW}" height="${h}" rx="1.5"
+        fill="${fill}"/>`;
+    });
+
+    const firstDay = days[0];
+    const lastDay = days[days.length - 1];
+    const firstLbl = firstDay.weekday + " " + firstDay.date.slice(5);
+    const lastLbl = lastDay.weekday + " " + lastDay.date.slice(5);
+
+    return `
+      <div class="folder-chart">
+        <div class="folder-chart-title">
+          <span>每日活跃时长 · 近 ${n} 天</span>
+          <span><strong>${fmtMin(totalMins)}</strong> 合计</span>
+        </div>
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${bars}</svg>
+        <div class="folder-chart-axis">
+          <span>${firstLbl}</span>
+          <span>${lastLbl}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function setupStatClicks() {
+    document.querySelectorAll(".stat[data-stat-key]").forEach(stat => {
+      stat.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const key = stat.dataset.statKey;
+        const builder = STAT_EXPLAIN[key];
+        if (!builder) return;
+        showPopover(stat, builder());
+      });
+    });
+  }
+
+  function renderControls(currentRange) {
+    const tabs = [
+      { id: "daily",   label: "日报" },
+      { id: "weekly",  label: "周报" },
+      { id: "monthly", label: "月报" },
+    ];
+    return `
+      <div class="controls reveal">
+        <div class="tabs" role="tablist">
+          ${tabs.map(t => `
+            <button class="tab" data-range="${t.id}"
+              aria-selected="${t.id === currentRange ? "true" : "false"}">
+              ${t.label}
+            </button>
+          `).join("")}
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-secondary" data-action="refresh"
+            onclick="window.ccReportsRefresh()">刷新 <span class="arrow">↻</span></button>
+          <div class="export-wrap">
+            <button class="btn btn-primary" data-action="export"
+              onclick="window.ccReportsToggleExportMenu(event)">导出 <span class="arrow">▾</span></button>
+            <div class="export-menu" id="export-menu" hidden>
+              <button class="export-item" onclick="window.ccReportsExport('md')">
+                <span class="export-item-icon">↓</span>
+                <span>
+                  <strong>Markdown</strong>
+                  <span class="export-item-desc">.md 文本，含 sessions/projects 详情</span>
+                </span>
+              </button>
+              <button class="export-item" onclick="window.ccReportsExport('pdf')">
+                <span class="export-item-icon">⎙</span>
+                <span>
+                  <strong>PDF</strong>
+                  <span class="export-item-desc">浏览器原生打印，在弹出对话框里选「另存为 PDF」</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  let DATA = null;
+  let RANGE = "daily";
+
+  function rerender() {
+    const agg = aggregateRange(DATA, RANGE);
+
+    const projectsHTML = renderProjects(agg.projects, RANGE)
+      .replace("<h2>Projects today</h2>", `<h2>${escapeHTML(agg.projects_title)}</h2>`);
+
+    const activityHTML = agg.activity.kind === "heatmap"
+      ? renderActivityHeatmap(agg.activity.days, agg.activity.opts)
+      : renderActivityChart(agg.activity.values, agg.activity.opts);
+
+    const html = [
+      `<section id="hero">${renderHeadline(agg)}</section>`,
+      renderControls(RANGE),
+      `<section id="activity">${activityHTML}</section>`,
+      `<section id="trend" class="section row-2 reveal">
+        ${renderTrend(agg.trend_days, agg.trend_title)}
+        ${renderTokenMix(agg.tokens, buildTrendInsight(agg.trend_days))}
+      </section>`,
+      `<section id="projects">${projectsHTML}</section>`,
+      `<section id="sessions">${renderSessions(agg.sessions_list, agg.sessions_opts)}</section>`,
+      `<div class="footnote">
+        <span>cc / reports · v0.4</span>
+        <span>source · ~/.claude/projects · ${DATA.days.length} days</span>
+      </div>`,
+    ].join("");
+
+    document.getElementById("app").innerHTML = html;
+
+    document.querySelectorAll(".tab").forEach(t => {
+      t.addEventListener("click", () => {
+        const next = t.dataset.range;
+        if (!next || next === RANGE) return;
+        RANGE = next;
+        rerender();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
+
+    setupSideNav();
+    setupBarClicks();
+    setupHeatmapClicks();
+    setupSparklineClicks();
+    setupStatClicks();
+    setupProjectClicks();
+    hidePopover();
+  }
+
+  // ─── Generic click-popover ───────────────────────────
+  let _popoverEl = null;
+  function hidePopover() {
+    if (_popoverEl) { _popoverEl.remove(); _popoverEl = null; }
+    document.removeEventListener("click", _popoverOutside, true);
+    document.removeEventListener("keydown", _popoverEsc);
+  }
+  function _popoverOutside(e) {
+    if (_popoverEl && !_popoverEl.contains(e.target)) hidePopover();
+  }
+  function _popoverEsc(e) {
+    if (e.key === "Escape") hidePopover();
+  }
+  function showPopover(anchorEl, html) {
+    hidePopover();
+    const div = document.createElement("div");
+    div.className = "data-popover reveal";
+    div.innerHTML = `<button class="popover-close" aria-label="关闭">×</button>${html}`;
+    document.body.appendChild(div);
+    const r = anchorEl.getBoundingClientRect();
+    const pw = div.offsetWidth, ph = div.offsetHeight;
+    let left = r.left + r.width / 2 - pw / 2 + window.scrollX;
+    let top = r.bottom + 10 + window.scrollY;
+    // flip up if would go off bottom
+    if (r.bottom + ph + 20 > window.innerHeight) {
+      top = r.top + window.scrollY - ph - 10;
+    }
+    left = Math.max(12, Math.min(left, window.innerWidth - pw - 12));
+    div.style.left = `${left}px`;
+    div.style.top = `${top}px`;
+    div.querySelector(".popover-close").onclick = hidePopover;
+    _popoverEl = div;
+    setTimeout(() => {
+      document.addEventListener("click", _popoverOutside, true);
+      document.addEventListener("keydown", _popoverEsc);
+    }, 0);
+  }
+
+  // Build popover content for a specific hour slot on a date.
+  function buildHourPopover(dateLabel, hour, byModel) {
+    const hourLabel = String(hour).padStart(2, "0") + ":00";
+    const total = Object.values(byModel || {}).reduce((a, b) => a + b, 0);
+    const modelRows = Object.entries(byModel || {}).sort((a, b) => b[1] - a[1]).map(([m, c]) => `
+      <div class="popover-row">
+        <span class="popover-label">${escapeHTML(shortModel(m))}</span>
+        <span class="popover-val">${fmtTok(c)} tokens <span style="color:var(--text-tertiary)">${total ? Math.round(c/total*100) : 0}%</span></span>
+      </div>
+    `).join("");
+    const body = total === 0
+      ? `<div class="popover-empty">这个时段没有活动</div>`
+      : modelRows;
+    return `
+      <div class="popover-head">
+        <span class="popover-title">${escapeHTML(dateLabel)} · ${hourLabel}</span>
+        <span class="popover-sub">${fmtTok(total)} tokens</span>
+      </div>
+      ${body}
+    `;
+  }
+
+  // Build popover for a whole day (used by sparkline dot clicks).
+  function buildDayPopover(day) {
+    const workToks = (day.tokens.output || 0) + (day.tokens.cache_creation || 0);
+    const topProject = (day.projects || [])[0];
+    const topSession = [...(day.sessions_list || [])].sort((a, b) => b.tokens - a.tokens)[0];
+    const wkLong = weekdayLong(day.date);
+    return `
+      <div class="popover-head">
+        <span class="popover-title">${escapeHTML(day.date)} · ${escapeHTML(wkLong)}</span>
+        <span class="popover-sub">${day.sessions} 个 session · ${fmtInt(day.user_msgs)} prompts</span>
+      </div>
+      <div class="popover-row">
+        <span class="popover-label">Output</span>
+        <span class="popover-val">${fmtTok(workToks)}</span>
+      </div>
+      <div class="popover-row">
+        <span class="popover-label">Cache read</span>
+        <span class="popover-val">${fmtTok(day.tokens.cache_read || 0)}</span>
+      </div>
+      ${topProject ? `
+        <div class="popover-row">
+          <span class="popover-label">主要项目</span>
+          <span class="popover-val">${escapeHTML(truncate(topProject.label, 22))} · ${fmtMin(topProject.active_min || 0)}</span>
+        </div>
+      ` : ""}
+      ${topSession ? `
+        <div class="popover-row">
+          <span class="popover-label">Top session</span>
+          <span class="popover-val">${escapeHTML(truncate(topSession.title, 26))}</span>
+        </div>
+      ` : ""}
+    `;
+  }
+
+  function setupBarClicks() {
+    const chart = document.querySelector('[data-chart="hourly-bar"]');
+    if (!chart) return;
+    const byModelRaw = chart.getAttribute("data-by-model");
+    const dateLabel = chart.getAttribute("data-date") || "";
+    let byModel = null;
+    try { byModel = byModelRaw ? JSON.parse(byModelRaw) : null; } catch (_) {}
+    chart.querySelectorAll(".bar-hit").forEach(hit => {
+      hit.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const i = parseInt(hit.dataset.idx, 10);
+        const html = buildHourPopover(dateLabel, i, byModel?.[i] || {});
+        showPopover(hit, html);
+      });
+    });
+  }
+
+  function setupHeatmapClicks() {
+    if (!DATA) return;
+    document.querySelectorAll('.heatmap-wrap rect[data-hm-date]').forEach(rect => {
+      rect.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const date = rect.dataset.hmDate;
+        const hour = parseInt(rect.dataset.hmHour, 10);
+        const day = DATA.days.find(d => d.date === date);
+        const byModel = day?.hourly_tokens_by_model?.[hour] || day?.hourly_by_model?.[hour] || {};
+        const html = buildHourPopover(date, hour, byModel);
+        showPopover(rect, html);
+      });
+    });
+  }
+
+  function setupSparklineClicks() {
+    if (!DATA) return;
+    document.querySelectorAll('.spark-dot.is-clickable').forEach(dot => {
+      dot.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const date = dot.dataset.date;
+        const day = DATA.days.find(d => d.date === date);
+        if (!day) return;
+        showPopover(dot, buildDayPopover(day));
+      });
+    });
+  }
+
+  let _navObserver = null;
+  function setupSideNav() {
+    const nav = document.getElementById("side-nav");
+    if (!nav) return;
+    nav.style.display = "flex";
+    const links = nav.querySelectorAll("a");
+
+    // smooth-scroll on click
+    links.forEach(a => {
+      a.onclick = (e) => {
+        e.preventDefault();
+        const el = document.getElementById(a.dataset.target);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+    });
+
+    // active state via IntersectionObserver
+    if (_navObserver) _navObserver.disconnect();
+    _navObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          links.forEach(a => a.classList.remove("active"));
+          const link = nav.querySelector(`a[data-target="${entry.target.id}"]`);
+          if (link) link.classList.add("active");
+        }
+      });
+    }, { rootMargin: "-30% 0px -60% 0px", threshold: 0 });
+
+    ["hero", "activity", "trend", "projects", "sessions"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) _navObserver.observe(el);
+    });
+  }
+
+  function renderApp(data) {
+    DATA = data;
+    const today = data.days[data.days.length - 1];
+    const stamp = new Date(data.generated_at).toLocaleString("en-GB", {
+      year: "numeric", month: "short", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hour12: false
+    });
+    const sourceTag = data._source === "live"
+      ? `实时 · ${data._build_ms ?? "—"}ms`
+      : "静态 · 需重跑 cc-reports.py build";
+    document.getElementById("stamp").innerHTML =
+      `<span>${escapeHTML(stamp)}</span><span style="margin-left:10px;opacity:0.6;">${escapeHTML(sourceTag)}</span>`;
+    document.title = `cc / reports · ${today.date} · ${today.sessions} 个 session`;
+    rerender();
+  }
+
+  // ─── Live data loader ───────────────────────────────
+  // Tries /api/data first (live, rebuilt every fetch by `cc-reports.py serve`),
+  // falls back to static cc-reports-data.json (one-shot `cc-reports.py build`).
+  async function fetchData() {
+    try {
+      const r = await fetch("/api/data?_t=" + Date.now(), { cache: "no-store" });
+      if (r.ok) {
+        const buildMs = r.headers.get("X-Build-Ms");
+        const data = await r.json();
+        data._source = "live";
+        data._build_ms = buildMs ? parseInt(buildMs, 10) : null;
+        return data;
+      }
+    } catch (_) { /* fall through */ }
+    const r2 = await fetch("cc-reports-data.json?_t=" + Date.now(), { cache: "no-store" });
+    if (!r2.ok) throw new Error("HTTP " + r2.status);
+    const data = await r2.json();
+    data._source = "static";
+    return data;
+  }
+
+  function diffData(prev, next) {
+    if (!prev || !next) return null;
+    const p = prev.days[prev.days.length - 1];
+    const n = next.days[next.days.length - 1];
+    if (!p || !n) return null;
+    const dp = n.user_msgs - p.user_msgs;
+    const da = n.assistant_msgs - p.assistant_msgs;
+    const ds = n.sessions - p.sessions;
+    const dt = (n.tokens.output + n.tokens.cache_creation) -
+               (p.tokens.output + p.tokens.cache_creation);
+    if (dp === 0 && da === 0 && ds === 0 && Math.abs(dt) < 1000) {
+      return { hasChange: false, label: "无新增" };
+    }
+    const parts = [];
+    if (ds > 0) parts.push(`+${ds} session`);
+    if (dp > 0) parts.push(`+${dp} prompts`);
+    if (da > 0) parts.push(`+${da} 回复`);
+    if (dt > 0) parts.push(`+${fmtTok(dt)} tokens`);
+    return { hasChange: true, label: parts.join(" · ") };
+  }
+
+  async function loadAndRender({ silent = false } = {}) {
+    const prevData = DATA;
+    const btn = document.querySelector('[data-action="refresh"]');
+    if (btn && !silent) {
+      btn.disabled = true;
+      btn.innerHTML = '刷新中… <span class="arrow">↻</span>';
+    }
+    try {
+      const data = await fetchData();
+      renderApp(data);
+      if (!silent) {
+        const diff = diffData(prevData, data);
+        const newBtn = document.querySelector('[data-action="refresh"]');
+        if (newBtn && diff) {
+          const icon = diff.hasChange ? "✓" : "·";
+          newBtn.innerHTML = `${icon} ${escapeHTML(diff.label)} <span class="arrow">↻</span>`;
+          newBtn.disabled = true;
+          newBtn.classList.add(diff.hasChange ? "btn-success" : "btn-quiet");
+          setTimeout(() => {
+            const b = document.querySelector('[data-action="refresh"]');
+            if (b) {
+              b.innerHTML = '刷新 <span class="arrow">↻</span>';
+              b.disabled = false;
+              b.classList.remove("btn-success", "btn-quiet");
+            }
+          }, 2800);
+        }
+      }
+    } catch (err) {
+      document.getElementById("app").innerHTML = `
+        <div class="loading">
+          数据加载失败 — ${escapeHTML(err.message)}<br><br>
+          启动 live server：
+          <code style="font-family:var(--font-mono); color:var(--text-primary)">python3 cc-reports.py serve</code>
+        </div>
+      `;
+    }
+  }
+
+  // expose for button onclick handlers
+  window.ccReportsRefresh = () => loadAndRender();
+
+  window.ccReportsToggleExportMenu = (e) => {
+    e.stopPropagation();
+    const menu = document.getElementById("export-menu");
+    if (!menu) return;
+    const open = !menu.hidden;
+    menu.hidden = open;  // toggle
+    if (!open) {
+      const close = (ev) => {
+        if (!menu.contains(ev.target) && !ev.target.closest('[data-action="export"]')) {
+          menu.hidden = true;
+          document.removeEventListener("click", close, true);
+        }
+      };
+      setTimeout(() => document.addEventListener("click", close, true), 0);
+    }
+  };
+
+  window.ccReportsExport = (format) => {
+    const menu = document.getElementById("export-menu");
+    if (menu) menu.hidden = true;
+    if (!DATA) return;
+
+    if (format === "pdf") {
+      // tag the body so @media print rules know which tab is active
+      document.body.dataset.printRange = RANGE;
+      document.body.dataset.printDate = DATA.today;
+      window.print();
+      return;
+    }
+
+    // default: markdown
+    const agg = aggregateRange(DATA, RANGE);
+    const md = exportMarkdown(agg, DATA);
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cc-report-${RANGE}-${DATA.today}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  function exportMarkdown(agg, data) {
+    const stripHTML = s => String(s || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+    const L = [];
+    L.push(`# ${agg.title_eyebrow}`);
+    L.push("");
+    L.push(`_Generated ${data.generated_at} · source ~/.claude/projects_`);
+    L.push("");
+    L.push(stripHTML(agg.headline));
+    L.push("");
+    L.push("## Summary");
+    L.push("");
+    agg.stats.forEach(s => {
+      L.push(`- **${s.label}**: ${s.value}  _(${s.sub})_`);
+    });
+    L.push("");
+    if (agg.sessions_list.length) {
+      L.push(`## ${stripHTML(agg.sessions_opts.title)}`);
+      L.push("");
+      const limit = agg.sessions_opts.limit || agg.sessions_list.length;
+      agg.sessions_list.slice(0, limit).forEach(s => {
+        const when = agg.sessions_opts.showDate
+          ? `${fmtMonthDay(s.start)} ${fmtTimeHHMM(s.start)}`
+          : fmtTimeHHMM(s.start);
+        L.push(`- \`${when}\` **${s.title}** — ${fmtMin(s.active_min)} · ${fmtTok(s.tokens)} tokens · \`${s.cwd_label}\`${s.branch ? " · `" + s.branch + "`" : ""}`);
+      });
+      L.push("");
+    }
+    if (agg.projects.length) {
+      L.push(`## ${stripHTML(agg.projects_title)}`);
+      L.push("");
+      agg.projects.forEach(p => {
+        L.push(`- **${p.label}** — ${fmtTok(p.tokens)} tokens · ${p.sessions} session${p.sessions !== 1 ? "s" : ""} · ${fmtInt(p.msgs)} msgs`);
+      });
+      L.push("");
+    }
+    return L.join("\n");
+  }
+
+  loadAndRender({ silent: true });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "//": "Optional config for cc-reports. Drop this as config.json to enable.",
+
+  "project_aliases": {
+    "//": "Rename a project (applies to cwd basename OR first-level subdir).",
+    "//example": "old-app -> 01-old-app"
+  },
+
+  "root_file_projects": [
+    ["//", "When cwd is a multi-project workspace, files at cwd root matched by regex → logical project name."],
+    ["^my-tool(-|\\.|$)", "my-tool"]
+  ],
+
+  "cwd_overrides": {
+    "//": "Force a specific absolute cwd to a project name, bypassing auto-detection.",
+    "//example1": "/Users/me/work/secret-project -> Acme Beta",
+    "//example2": "use this when auto-detection picks the wrong name"
+  }
+}
