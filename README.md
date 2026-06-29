@@ -5,8 +5,6 @@
 >
 > **不联网 · 不上传 · 单脚本 + 单 HTML，零依赖**
 
-![preview](preview.png)
-
 ## 它做什么
 
 打开 Claude Code (cc) 时每条 prompt 都会写到 `~/.claude/projects/<cwd>/<sessionId>.jsonl`。
