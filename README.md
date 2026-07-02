@@ -1,125 +1,124 @@
-# cc-reports · Claude Code 日报 / 周报 / 月报
+# cc-reports · Claude Code 用量日历
+### 把你每天用 Claude Code 干的活，显影成一张日历
 
-> 一个**完全本地**的 dashboard，扫你的 `~/.claude/projects/` jsonl，告诉你
-> **今天 / 本周 / 本月**你用 Claude Code 做了什么、烧了多少 token、cache 命中率多少。
->
-> **不联网 · 不上传 · 纯 Python 标准库，零第三方依赖**
+by 布灵布灵灵 · [小红书](https://xhslink.com/m/1ht5s0trmNo) · [GitHub](https://github.com/pxx-design)
 
-## 它做什么
+---
 
-打开 Claude Code (cc) 时每条 prompt 都会写到 `~/.claude/projects/<cwd>/<sessionId>.jsonl`。
-这个项目把那堆 jsonl 聚合成一个**点击可刷新**的 dashboard：
+## 这个工具解决什么问题
 
-- **Hero stats**：sessions / prompts / output tokens / cache hit
-- **时段活动**：日报 24 柱，按 model 堆叠（点柱子看模型分布）
-- **近 7 日趋势**：tokens / sessions / prompts 三条 sparkline（点圆点看该日详情）
-- **Token 用量构成**：output / cache_write / input 堆叠 bar + 一句话洞察
-- **今日各项目用时**：自动识别你工作在哪个子项目（基于 Edit/Write 的 file_path）
-- **今日 Sessions**：所有 session 的标题 + 时长 + tokens
-- **周报 / 月报**：把日报升级成 day × 24h heatmap（点格子看该时段模型分布）
+用 Claude Code，经常同时开好几个会话、跑不同项目，很好奇每轮会话、每个项目到底用了多少时间，烧了多少 token。cc-reports 把它显影成一张点击就重算的日历：今天、这周、这个月，一眼看清。
 
-跨日的长 session（你不关 cc 窗口，连续用几天）会被自动**按日切片**，
-所以每天的数字反映的是「**那天**做了什么」，不是「这个 session 起源在哪天」。
+这像是一本工作日历。
 
-## 怎么用
+---
 
-### 路线 A · 让 Claude Code 自动跑（推荐）
+## 它给你看什么
+
+- **头部总览**：今天开了几个 session、发了多少 prompt、生成了多少 token、缓存命中率多高
+- **时段活动**：一天 24 根柱子，按模型堆叠，点柱子看当时用了哪个模型
+- **近 7 日趋势**：token / session / prompt 三条走势线，点圆点看当天详情
+- **token 构成**：output / 缓存写入 / input 分层，配一句话点评花在哪
+- **各项目用时**：自动认出你在哪个子项目干活（看 Edit / Write 落在哪个目录）
+- **今日 Sessions**：每个 session 的标题、时长、token
+- **周报 / 月报**：日报升级成 天 × 24 小时 的热力图，点格子看那个时段的模型分布
+
+跨天的长 session（有时候会不关窗口连着用好几天）会被按日切开，每天的数字是"那天做了什么"，不是"这个 session 从哪天开的"。所以它是一本工作日历，不是一份 session 流水账。
+
+---
+
+## 它和别的 cc 用量工具差在哪
+
+市面上的工具大多在拼"多少"——token、成本、燃烧率。cc-reports 只认一件别人不太管的事：你**怎么用**。
+
+| | 查额度 / 用量的工具 | cc-reports |
+|--|--|--|
+| 核心问题 | 花了多少 token、还剩多少额度 | 每天用它做了什么 |
+| 时间粒度 | 当前周期 / 累计总量 | 按天切片的工作日历 |
+| 项目归属 | 一般没有 | 自动认出每天在哪个项目干活 |
+| 跨天长 session | 整段算在起始那天 | 按日切开，每天各算各的 |
+| 时段节奏 | 一般没有 | 24 小时 × 模型 分布 |
+| 运行 | 视工具而定 | 100% 本地、不联网、纯 Python 标准库 |
+
+---
+
+## 适合谁用
+
+**最适合：**
+- 每天重度用 Claude Code、想知道时间和 token 花在哪的人
+- 同时开好几个项目、想看每个项目各占多少的人
+- 想留一份"我用 AI 做了什么"的可回看记录的人
+
+**不太适合：**
+- 只想看"还剩多少额度"——官方 `/usage` 更直接
+- 想要实时燃烧率加限额预测——有专门工具（如 Claude-Code-Usage-Monitor）
+
+---
+
+## 使用方式
+
+### 方式一 · macOS / Linux
 
 ```bash
 git clone https://github.com/pxx-design/cc-reports
 cd cc-reports
-```
-
-打开 Claude Code（在 `cc-reports` 目录），说一句：
-
-```
-读 ./SKILL.md，帮我生成 cc 报告
-```
-
-cc 会自动启 server 并打开 dashboard。
-
-**想随时随地一句话唤起**（在任何目录说「看我的 cc 日报」就自动跑），把它装成 skill：
-
-```bash
-# 软链(推荐,以后 git pull 即更新),或直接 cp -r
-ln -s "$(pwd)" ~/.claude/skills/cc-reports
-```
-
-下次启动 Claude Code 即可用自然语言触发。
-
-### 路线 B · 命令行
-
-```bash
-# 实时 dashboard（点击刷新会现场重算，cmd-r 看最新数据）
 python3 cc-reports.py serve
-# → cc-reports · http://localhost:8765/
-
-# 一次性快照（生成 cc-reports-data.json，HTML 自动读）
-python3 cc-reports.py build
+# 打开终端里提示的 http://localhost:8765
 ```
 
-`serve` 默认 8765 端口；占用就自动 +1 找空闲端口。
+### 方式二 · Windows
+
+```bash
+git clone https://github.com/pxx-design/cc-reports
+cd cc-reports
+python cc-reports.py serve
+# Windows 上命令是 python，不是 python3
+```
+
+> Windows 逻辑上跑得通，但暂未在真机验证过。
+
+### 方式三 · 让 Claude Code 自动跑（装成 skill）
+
+装好后，在任意目录对 Claude Code 说一句「看我的 cc 日报」，它自己启服务、开页面。
+
+```bash
+# macOS / Linux：软链进 skills 目录，以后 git pull 就更新
+ln -s "$(pwd)" ~/.claude/skills/cc-reports
+
+# Windows：把整个文件夹复制进 %USERPROFILE%\.claude\skills\cc-reports\
+```
+
+不想装也行：对着 clone 下来的目录说「读 ./SKILL.md，帮我生成 cc 报告」，一样能跑。
+
+---
 
 ## 项目识别 / 配置
 
-dashboard 会按下面 3 层优先级判断每个 session 算在哪个项目里：
+dashboard 会按三层优先级判断每个 session 算在哪个项目：
 
-```
-1. cwd_overrides 配置（最优先）
-   → 显式把某个 cwd 路径强制映射到项目名
+1. **`cwd_overrides`**（最高）：把某个绝对路径强制指定成项目名
+2. **单项目根**：cwd 里有 `package.json` / `Cargo.toml` / `pyproject.toml` 等构建清单，就用目录名当项目名（`.git` 单独存在不算，很多 workspace 也用 git）
+3. **多项目 workspace**：看这个 session 里 Edit / Write 最多的第一级子目录；没有文件操作就归 "general"
 
-2. cwd 是不是单项目根（含 **build manifest**：package.json / Cargo.toml /
-   pyproject.toml / setup.py / go.mod / Gemfile / pom.xml / Makefile / 等）
-   → 是：用 cwd 的最后一段目录名作为项目名
-        （你在项目根目录里 `cc` 启动 → 项目名 = 这个目录名，符合直觉）
+默认体验已经够用——大多数人 `cd` 进项目根目录再开 cc，第 2 步就认对了。想自定义就把 `config.example.json` 复制成 `config.json`，改完在浏览器点「刷新」即可生效，不用重启。
 
-   注：`.git` 单独存在**不算**——很多 workspace / mega-repo 也用 git
-   管理。必须有 build manifest 才算单项目根。
-
-3. cwd 是多项目 workspace（没有上面那些 marker）
-   → 看 session 内 Edit/Write 操作最多的第一级子目录作为项目名
-   → 没文件操作 → "general"
-```
-
-**默认体验已经够好**——大多数人 `cd` 到项目根目录开 `cc`，第 2 步就能识别对。
-
-### 想自定义就 copy config.example.json 改名 config.json：
-
-```json
-{
-  "project_aliases": {
-    "old-name": "01-new-name"
-  },
-  "root_file_projects": [
-    ["^my-tool(-|\\.|$)", "my-tool"]
-  ],
-  "cwd_overrides": {
-    "/Users/me/work/secret": "Acme Beta"
-  }
-}
-```
-
-| 字段 | 用途 |
-|---|---|
-| `project_aliases` | 改某个项目显示名（对 cwd basename 或第一级子目录都生效） |
-| `root_file_projects` | workspace 模式时，cwd 根目录散文件按 regex 归到逻辑项目 |
-| `cwd_overrides` | 自动识别错了？用绝对路径硬性指定项目名 |
-
-编辑后浏览器点「刷新」即可生效，不用重启 server。
+---
 
 ## 隐私
 
-- **100% 本地**：脚本只读 `~/.claude/projects/*.jsonl` + 你 clone 的 HTML 模板
-- **无网络调用**：server 只监听 `127.0.0.1`，不开放外部访问
-- **数据不离开你的电脑**：除非你自己截图分享 / 把生成的 HTML 发出去
-- 你的 `config.json`（含项目别名，可能透露内部代号）默认在 `.gitignore` 里，不会被 commit
+- **100% 本地**：只读 `~/.claude/projects/*.jsonl` 和你 clone 的模板
+- **不联网**：服务只监听 `127.0.0.1`，不对外开放
+- **数据不离开你的电脑**：除非你自己截图分享，或把生成的 HTML 发出去
+- 你的 `config.json`（含项目别名，可能透露内部代号）默认在 `.gitignore` 里，不会被提交
+
+---
 
 ## 文件结构
 
 ```
 cc-reports/
-├── README.md             你正在看
-├── SKILL.md              cc 自动化协议
+├── README.md             你正在看的这份
+├── SKILL.md              Claude Code 自动化协议
 ├── cc-reports.py         主脚本（build + serve）
 ├── cc-reports.html       dashboard 模板（数据通过 fetch 加载）
 ├── cc_usage_core/        内核：jsonl 扫描 + 模型/定价注册表（纯标准库）
@@ -128,24 +127,17 @@ cc-reports/
 └── LICENSE
 ```
 
-运行后会生成：
+运行后会生成 `config.json`（你的私有别名表）和 `cc-reports-data.json`（数据快照），两者都已 gitignore。
 
-```
-├── config.json           ← 你的私有别名表（gitignore'd）
-└── cc-reports-data.json  ← 静态快照（gitignore'd）
-```
+---
 
 ## 兼容性
 
-- Python 3.10+
-- macOS / Linux 验证过；Windows 应该 OK（用了 `os.path` 跨平台）
-- 浏览器：Chrome / Safari / Edge / Firefox
+- **Python** 3.10+
+- **macOS / Linux**：实测可用
+- **Windows**：可用，命令用 `python`；装 skill 用复制而非 `ln -s`（未在真机验证）
+- **浏览器**：Chrome / Safari / Edge / Firefox
 
-## 相关
+---
 
-- **cc-token-dashboard**（同一作者的姊妹项目，季度回顾 + token 人格，*尚未开源*）：
-  它是「年报 + 测一次玩」，cc-reports 是「每日工作日历」。互补不重叠。
-
-## License
-
-MIT
+MIT License · 自由使用修改分享，保留署名即可
