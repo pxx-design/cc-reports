@@ -1,6 +1,9 @@
 {
   "//": "Optional config for cc-reports. Drop this as config.json to enable.",
 
+  "display_name": "",
+  "//display_name": "Header greeting name. Leave empty to auto-resolve: git user.name -> OS full name -> login name.",
+
   "project_aliases": {
     "//": "Rename a project (applies to cwd basename OR first-level subdir).",
     "//example": "old-app -> 01-old-app"

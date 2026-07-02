@@ -23,6 +23,7 @@ import json
 import os
 import re
 import socket
+import subprocess
 import sys
 import time
 from collections import defaultdict
@@ -45,15 +46,87 @@ from cc_usage_core import scan
 TZ = datetime.now().astimezone().tzinfo
 
 
-def _current_user():
-    """运行者本机用户名(顶栏显示用)。任何环境下都不抛异常。"""
+def _placeholder_name(s):
+    """占位符 / 无意义名判断:空、常见占位、纯邮箱。"""
+    if not s:
+        return True
+    low = s.strip().lower()
+    if low in ("your name", "user", "username", "unknown", "you", "name", "admin"):
+        return True
+    # 纯邮箱(无空格且含 @) 当占位
+    if "@" in low and " " not in low and "." in low.split("@")[-1]:
+        return True
+    return False
+
+
+def _login_name():
+    """本机登录账户名。"""
     try:
         return getpass.getuser()
     except Exception:
-        return os.environ.get("USER") or os.environ.get("USERNAME") or "you"
+        return os.environ.get("USER") or os.environ.get("USERNAME") or ""
+
+
+def _git_user_name():
+    """全局 git 身份 — 开发者自起的名,最贴 CC 场景。"""
+    try:
+        out = subprocess.run(
+            ["git", "config", "--global", "user.name"],
+            capture_output=True, text=True, timeout=2,
+        ).stdout.strip()
+        return "" if _placeholder_name(out) else out
+    except Exception:
+        return ""
+
+
+def _os_full_name():
+    """系统全名(GECOS / macOS 全名),排除等于登录名或占位的情况。"""
+    login = _login_name()
+    candidates = []
+    try:
+        import pwd
+        candidates.append(pwd.getpwuid(os.getuid()).pw_gecos.split(",")[0].strip())
+    except Exception:
+        pass
+    if sys.platform == "darwin":
+        try:
+            candidates.append(subprocess.run(
+                ["id", "-F"], capture_output=True, text=True, timeout=2,
+            ).stdout.strip())
+        except Exception:
+            pass
+    for full in candidates:
+        if full and not _placeholder_name(full) and full != login:
+            return full
+    return ""
+
+
+def _current_user(cfg=None):
+    """顶栏显示名。回退链:config.display_name → git 身份 → 系统全名 → 登录名 → 'you'。
+    任何环境下都不抛异常。"""
+    # 1. 显式配置(最高)
+    if cfg:
+        dn = (cfg.get("display_name") or "").strip()
+        if dn:
+            return dn
+    # 2. git 身份
+    name = _git_user_name()
+    if name:
+        return name
+    # 3. 系统全名
+    name = _os_full_name()
+    if name:
+        return name
+    # 4. 登录名(现状兜底)
+    name = _login_name()
+    if name:
+        return name
+    # 5. 最终兜底
+    return "you"
 
 # ─── Config ────────────────────────────────────────────
 DEFAULT_CONFIG = {
+    "display_name": "",           # 顶栏显示名;留空则走 git→系统全名→登录名 回退链
     "project_aliases": {},        # {"old-name": "01-new-name"}
     "root_file_projects": [],     # [["regex", "logical-project-name"]]
     "cwd_overrides": {},          # {"/abs/path/to/cwd": "ProjectName"} — explicit
@@ -232,6 +305,8 @@ def build_data():
     Tool_use file_paths are interpreted relative to that session's own cwd,
     so this script works for any user without hard-coded project roots.
     """
+    global CFG
+    CFG = load_config()  # 每次请求重读,config.json 改动刷新即生效(不必重启)
     files = scan.find_jsonl(PROJ_DIR, recursive=False)
 
     session_meta = {}              # sid -> {title, cwd, branch}
@@ -419,7 +494,7 @@ def build_data():
         "generated_at": datetime.now(TZ).isoformat(),
         "tz": str(TZ),
         "today": today.isoformat(),
-        "user": _current_user(),  # 顶栏显示运行者本机用户名,谁跑就是谁
+        "user": _current_user(CFG),  # 顶栏显示名:config→git→系统全名→登录名 回退
         "days": days_out,
     }
 
@@ -432,6 +507,8 @@ def build_session_anatomy(sid, date_iso=None):
     每轮产出: prompt 首句 + token 成本 + 工具计数 + 碰过的文件。
     **只回用户自己的 prompt 行 + 元数据，绝不回 Claude 正文 / 文件内容。**
     """
+    global CFG
+    CFG = load_config()  # 与 build_data 一致:每次请求重读 config
     matches = glob.glob(os.path.join(PROJ_DIR, "*", sid + ".jsonl"))
     if not matches:
         return {"error": "session not found", "sid": sid, "turns": []}
