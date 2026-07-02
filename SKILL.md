@@ -265,6 +265,7 @@ dashboard 把每个 session-day 切片归到一个项目，按下面 3 层优先
 
 ```json
 {
+  "display_name": "",
   "cwd_overrides": {
     "/abs/path/to/cwd": "ProjectName"
   },
@@ -279,6 +280,7 @@ dashboard 把每个 session-day 切片归到一个项目，按下面 3 层优先
 
 | 字段 | 何时用 |
 |---|---|
+| `display_name` | 自定义顶栏显示名；留空则自动回退：git user.name → 系统全名 → 登录名 |
 | `cwd_overrides` | 自动识别错了 / 想给项目改名（最常用，强烈推荐先用这个） |
 | `project_aliases` | 多个旧目录名想合并到一个规范名（如老路径 "app" → "01-app"） |
 | `root_file_projects` | workspace 模式下，cwd 根目录的散文件归到逻辑项目 |
