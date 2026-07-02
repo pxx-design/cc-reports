@@ -1,4 +1,4 @@
-# cc-reports · Claude Code 用量日历
+# cc-reports · Claude Code 日报 / 周报 / 月报
 ### 把你每天用 Claude Code 干的活，显影成一张日历
 
 by 布灵布灵灵 · [小红书](https://xhslink.com/m/1ht5s0trmNo) · [GitHub](https://github.com/pxx-design)
