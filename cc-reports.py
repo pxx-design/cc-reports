@@ -145,6 +145,7 @@ PROJECT_ROOT_MARKERS = [
     "requirements.txt", "Pipfile", "poetry.lock",
     "Makefile", "CMakeLists.txt",
     "Podfile",
+    "Package.swift",
 ]
 
 _root_check_cache = {}
