@@ -1,10 +1,11 @@
 import AppKit
+import WebKit
 import Foundation
 
-// ── cc-glance · 常驻菜单栏用量浮层 ──────────────────────────────
-// 菜单栏常显今天用量(total tokens),点开下拉看项目明细。
-// 数据来自 `cc-reports.py glance`(纯本地扫 ~/.claude/projects,不联网)。
-// 每次打开菜单 / 点刷新 / 每 5 分钟自动跑一次。
+// ── cc-glance v2 · 常驻桌面浮窗(项目维度可视化)─────────────────
+// 菜单栏 ⚡ 图标显示今日产出;点击开/关一个置顶迷你仪表盘(NSPanel + WKWebView)。
+// 数据来自 `cc-reports.py glance`(纯本地扫 ~/.claude/projects,不联网),
+// Swift 每次刷新把 JSON 注入 WebView,HTML 负责画项目条 / sparkline / 动画。
 
 // ── 定位 cc-reports.py(优先个人 skill 目录,回退到 repo)──────
 func scriptPath() -> String {
@@ -17,21 +18,8 @@ func scriptPath() -> String {
     return candidates[0]
 }
 
-// ── 数据模型 ────────────────────────────────────────────────
-struct Proj {
-    let name: String; let tokens: Int; let output: Int; let cacheCreation: Int
-    let activeMin: Int; let fallback: Bool
-    var work: Int { output + cacheCreation }   // "真实产出":生成 + 写缓存,排除缓存重读
-}
-struct Glance {
-    let total: Int, output: Int, cacheCreation: Int, activeMin: Int, sessions: Int
-    let start: String
-    let projects: [Proj]
-    var work: Int { output + cacheCreation }   // 跟 dashboard「Output」卡同口径
-}
-
-// ── 跑 glance,解析 JSON ─────────────────────────────────────
-func runGlance() -> Glance? {
+// ── 跑 glance,拿原始 JSON 字符串(直接注入 WebView,不在 Swift 解析)──
+func runGlanceRaw() -> String? {
     let task = Process()
     task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
     task.arguments = ["python3", scriptPath(), "glance"]
@@ -42,158 +30,198 @@ func runGlance() -> Glance? {
     let data = out.fileHandleForReading.readDataToEndOfFile()
     task.waitUntilExit()
     guard task.terminationStatus == 0,
-          let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+          let s = String(data: data, encoding: .utf8),
+          !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     else { return nil }
-
-    let tk = obj["tokens"] as? [String: Any] ?? [:]
-    let rng = obj["range"] as? [String: Any] ?? [:]
-    let projs = (obj["projects"] as? [[String: Any]] ?? []).map { p in
-        Proj(name: p["name"] as? String ?? "?",
-             tokens: (p["tokens"] as? NSNumber)?.intValue ?? 0,
-             output: (p["output"] as? NSNumber)?.intValue ?? 0,
-             cacheCreation: (p["cache_creation"] as? NSNumber)?.intValue ?? 0,
-             activeMin: (p["active_min"] as? NSNumber)?.intValue ?? 0,
-             fallback: (p["fallback"] as? Bool) ?? false)
-    }
-    return Glance(
-        total: (tk["total"] as? NSNumber)?.intValue ?? 0,
-        output: (tk["output"] as? NSNumber)?.intValue ?? 0,
-        cacheCreation: (tk["cache_creation"] as? NSNumber)?.intValue ?? 0,
-        activeMin: (obj["active_min"] as? NSNumber)?.intValue ?? 0,
-        sessions: (obj["sessions"] as? NSNumber)?.intValue ?? 0,
-        start: rng["start"] as? String ?? "",
-        projects: projs)
+    return s
 }
 
-// ── 格式化 ──────────────────────────────────────────────────
+// 菜单栏标题只需 tokens.work 一个数
+func workFromJSON(_ s: String) -> Int? {
+    guard let d = s.data(using: .utf8),
+          let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+          let tk = obj["tokens"] as? [String: Any],
+          let w = tk["work"] as? NSNumber else { return nil }
+    return w.intValue
+}
+
 func fmtTok(_ n: Int) -> String {
     if n >= 1_000_000 { return String(format: "%.1fM", Double(n) / 1_000_000) }
     if n >= 1_000 { return String(format: "%.0fK", Double(n) / 1_000) }
     return "\(n)"
 }
-func fmtMin(_ m: Int) -> String {
-    if m >= 60 { return "\(m / 60)h\(m % 60)m" }
-    return "\(m)m"
-}
 
 // ── App ─────────────────────────────────────────────────────
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKScriptMessageHandler {
     var item: NSStatusItem!
-    let menu = NSMenu()
+    var panel: NSPanel!
+    var web: WKWebView!
     var timer: Timer?
-    var cache: Glance?          // 上一次成功的数据快照
+    var lastJSON: String?
+    var webLoaded = false
     var refreshing = false
 
     func applicationDidFinishLaunching(_ n: Notification) {
-        item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
-        item.button?.title = "⚡ …"
-        menu.delegate = self
-        item.menu = menu
-        rebuildMenu(nil)        // 先占位,数据后台拉
-        refreshAsync()
-        // 每 5 分钟被动刷一次菜单栏数字
+        setupStatusItem()
+        setupPanel()
+        refresh()
         timer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
-            self?.refreshAsync()
+            self?.refresh()
+        }
+        if ProcessInfo.processInfo.environment["CCG_AUTOSHOW"] != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.togglePanel() }
         }
     }
 
-    // 打开菜单前:用缓存瞬间重建(不阻塞),同时后台拉最新
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        rebuildMenu(cache)
-        refreshAsync()
+    // ── 菜单栏图标(左键开关浮窗 / 右键小菜单)──
+    func setupStatusItem() {
+        item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        item.button?.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        item.button?.title = "⚡ …"
+        item.button?.target = self
+        item.button?.action = #selector(statusClick)
+        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
     }
 
-    // 后台跑 glance,回主线程更新菜单栏数字 + 菜单(菜单开着也会活更新)
-    func refreshAsync() {
+    @objc func statusClick() {
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            showContextMenu()
+        } else {
+            togglePanel()
+        }
+    }
+
+    func showContextMenu() {
+        let m = NSMenu()
+        let mk: (String, Selector, String) -> Void = { title, sel, key in
+            let mi = NSMenuItem(title: title, action: sel, keyEquivalent: key)
+            mi.target = self
+            m.addItem(mi)
+        }
+        mk("刷新", #selector(doRefresh), "")
+        mk("打开完整报告 ↗", #selector(openFull), "")
+        m.addItem(.separator())
+        mk("退出", #selector(quit), "q")
+        item.menu = m
+        item.button?.performClick(nil)   // 弹出菜单
+        item.menu = nil                   // 复位,下次左键回到"开关浮窗"
+    }
+
+    // ── 浮窗 ──
+    func setupPanel() {
+        let size = NSSize(width: 520, height: 360)
+        panel = NSPanel(contentRect: NSRect(origin: .zero, size: size),
+                        styleMask: [.borderless, .nonactivatingPanel],
+                        backing: .buffered, defer: false)
+        panel.level = .floating              // 置顶
+        panel.isFloatingPanel = true
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = true
+        panel.isMovableByWindowBackground = true   // 拖背景移动
+        panel.hidesOnDeactivate = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
+        let cfg = WKWebViewConfiguration()
+        cfg.userContentController.add(self, name: "ccg")
+        web = WKWebView(frame: NSRect(origin: .zero, size: size), configuration: cfg)
+        web.navigationDelegate = self
+        web.setValue(false, forKey: "drawsBackground")   // 透明底,露出 CSS 圆角卡
+        web.wantsLayer = true
+        web.layer?.cornerRadius = 24
+        web.layer?.masksToBounds = true
+        if let url = Bundle.module.url(forResource: "glance", withExtension: "html") {
+            web.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        }
+        panel.contentView = web
+    }
+
+    func webView(_ w: WKWebView, didFinish nav: WKNavigation!) {
+        webLoaded = true
+        injectIfReady()
+    }
+
+    func injectIfReady() {
+        guard webLoaded, let json = lastJSON else { return }
+        web.evaluateJavaScript("window.__setData(\(json))")
+    }
+
+    func togglePanel() {
+        if panel.isVisible {
+            saveFrame()
+            panel.orderOut(nil)
+        } else {
+            positionPanel()
+            panel.orderFrontRegardless()
+            injectIfReady()
+            refresh()   // 打开即拉最新
+        }
+    }
+
+    // 位置:优先上次保存;否则贴到菜单栏图标下方
+    func positionPanel() {
+        if let s = UserDefaults.standard.string(forKey: "ccg.origin") {
+            let p = NSPointFromString(s)
+            if NSScreen.screens.contains(where: { $0.frame.contains(p) }) {
+                panel.setFrameOrigin(p); return
+            }
+        }
+        if let bwin = item.button?.window {
+            let bf = bwin.frame
+            let x = bf.midX - panel.frame.width / 2
+            let y = bf.minY - panel.frame.height - 6
+            panel.setFrameOrigin(NSPoint(x: x, y: y))
+        } else {
+            panel.center()
+        }
+    }
+
+    func saveFrame() {
+        UserDefaults.standard.set(NSStringFromPoint(panel.frame.origin), forKey: "ccg.origin")
+    }
+
+    // ── 数据刷新 ──
+    @objc func doRefresh() { refresh() }
+
+    func refresh() {
         if refreshing { return }
         refreshing = true
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-            let g = runGlance()
+            let json = runGlanceRaw()
             DispatchQueue.main.async {
+                guard let self = self else { return }
                 self.refreshing = false
-                if let g = g { self.cache = g }
-                self.item.button?.title = self.cache.map { "⚡\(fmtTok($0.work))" } ?? "⚡ –"
-                self.rebuildMenu(self.cache)
+                if let json = json {
+                    self.lastJSON = json
+                    if let w = workFromJSON(json) { self.item.button?.title = "⚡\(fmtTok(w))" }
+                    self.injectIfReady()
+                } else {
+                    self.item.button?.title = "⚡ –"
+                }
             }
         }
     }
 
-    func rebuildMenu(_ g: Glance?) {
-        menu.removeAllItems()
-        guard let g = g else {
-            menu.addItem(dim(refreshing ? "加载中…" : "数据读取失败"))
-            addFooter()
-            return
+    // ── WebView 按钮回传(刷新 / 打开完整报告)──
+    func userContentController(_ u: WKUserContentController, didReceive msg: WKScriptMessage) {
+        switch msg.body as? String {
+        case "refresh": refresh()
+        case "openFull": openFull()
+        default: break
         }
-
-        // 头部:日期 + total + output + 活跃 + session 数
-        let head = NSMenuItem(title: "今天 \(g.start.suffix(5))", action: nil, keyEquivalent: "")
-        head.attributedTitle = NSAttributedString(
-            string: "今天 \(g.start.suffix(5))",
-            attributes: [.font: NSFont.boldSystemFont(ofSize: 12)])
-        menu.addItem(head)
-        menu.addItem(dim("产出 \(fmtTok(g.work)) · 活跃 \(fmtMin(g.activeMin)) · \(g.sessions) session"))
-        menu.addItem(dim("含缓存重读共 \(fmtTok(g.total)) tokens"))
-        menu.addItem(.separator())
-
-        // 项目行:真项目在前(sort 已把 fallback 沉底)
-        if g.projects.isEmpty {
-            menu.addItem(dim("今天还没用量"))
-        }
-        for p in g.projects {
-            let name = p.fallback ? p.name : p.name
-            let row = "\(name)    \(fmtMin(p.activeMin)) · \(fmtTok(p.work))"
-            let mi = NSMenuItem(title: row, action: nil, keyEquivalent: "")
-            let color: NSColor = p.fallback ? .tertiaryLabelColor : .labelColor
-            mi.attributedTitle = NSAttributedString(
-                string: row,
-                attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular),
-                             .foregroundColor: color])
-            menu.addItem(mi)
-        }
-        addFooter()
     }
 
-    func addFooter() {
-        menu.addItem(.separator())
-        add("🔄 刷新", #selector(doRefresh))
-        add("打开完整报告 ↗", #selector(openFull))
-        menu.addItem(.separator())
-        add("退出", #selector(quit))
-    }
-
-    // helpers
-    func dim(_ s: String) -> NSMenuItem {
-        let mi = NSMenuItem(title: s, action: nil, keyEquivalent: "")
-        mi.attributedTitle = NSAttributedString(
-            string: s, attributes: [.font: NSFont.systemFont(ofSize: 11),
-                                    .foregroundColor: NSColor.secondaryLabelColor])
-        return mi
-    }
-    func add(_ title: String, _ sel: Selector) {
-        let mi = NSMenuItem(title: title, action: sel, keyEquivalent: "")
-        mi.target = self
-        menu.addItem(mi)
-    }
-
-    @objc func doRefresh() { refreshAsync() }
     @objc func quit() { NSApp.terminate(nil) }
 
-    // 打开完整 dashboard:后台起 serve,读首行 URL,open 之
+    // 打开完整 dashboard:复用已跑的 cc-reports(靠 /api/data 签名认准),否则冷启
     @objc func openFull() {
-        item.button?.title = "启动中…"      // 立即反馈,冷启那几秒不至于"像没反应"
         let py = scriptPath()
         let sh = """
-        # 1) 复用已在跑的 cc-reports(靠 /api/data 的 "generated_at" 签名认准自己,
-        #    避免抓到端口段里别的本地 server,如灵感库)
         for p in $(seq 8765 8784); do
           if curl -s --max-time 3 "http://localhost:$p/api/data" | grep -q '"generated_at"'; then
             open "http://localhost:$p/"; exit 0
           fi
         done
-        # 2) 没有则新起,等最多 ~15s 抓 URL,nohup 让它活过本脚本
         f=$(mktemp)
         nohup /usr/bin/env python3 "\(py)" serve >"$f" 2>&1 &
         for i in $(seq 1 60); do
@@ -205,15 +233,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let t = Process()
         t.executableURL = URL(fileURLWithPath: "/bin/bash")
         t.arguments = ["-c", sh]
-        t.terminationHandler = { [weak self] _ in      // 开完(或超时)恢复数字
-            DispatchQueue.main.async { self?.refreshAsync() }
-        }
-        do { try t.run() } catch { refreshAsync() }
+        try? t.run()
     }
 }
 
 let app = NSApplication.shared
-app.setActivationPolicy(.accessory)   // 无 dock 图标,纯菜单栏常驻
+app.setActivationPolicy(.accessory)   // 无 dock 图标,纯菜单栏 + 浮窗
 let delegate = AppDelegate()
 app.delegate = delegate
 app.run()

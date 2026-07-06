@@ -5,6 +5,10 @@ let package = Package(
     name: "ccglance",
     platforms: [.macOS(.v13)],
     targets: [
-        .executableTarget(name: "ccglance", path: "Sources/ccglance")
+        .executableTarget(
+            name: "ccglance",
+            path: "Sources/ccglance",
+            resources: [.copy("glance.html")]
+        )
     ]
 )

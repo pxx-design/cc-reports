@@ -824,20 +824,37 @@ def cmd_glance(args):
             a["active_min"] += p.get("active_min", 0)
             a["sessions"] += p.get("sessions", 0)
 
+    # 每项目近 7 天 work(=output+cache_creation) 日序列,喂浮窗 sparkline(oldest→newest;缺席天补 0)
+    last7 = days[-7:]
+    spark = {
+        name: [
+            next((pp.get("output", 0) + pp.get("cache_creation", 0)
+                  for pp in d.get("projects", []) if pp["name"] == name), 0)
+            for d in last7
+        ]
+        for name in proj_agg
+    }
+
     projects = sorted(
-        [{"name": n, **v} for n, v in proj_agg.items()],
-        key=lambda x: (x["fallback"], -x["tokens"]),
+        [{"name": n, **v, "work": v["output"] + v["cache_creation"], "spark": spark.get(n, [])}
+         for n, v in proj_agg.items()],
+        key=lambda x: (x["fallback"], -x["work"]),
     )
     active_min = sum(p["active_min"] for p in projects)
 
+    today = days[-1] if days else {}
     out = {
         "generated_at": data.get("generated_at"),
         "range": {"days": win, "start": sel[0]["date"] if sel else None,
                   "end": sel[-1]["date"] if sel else None},
-        "tokens": tokens,
+        "tokens": {**tokens, "work": tokens["output"] + tokens["cache_creation"]},
         "active_min": active_min,
         "sessions": sessions,
         "projects": projects[:8],
+        # 24H 视图:今日每小时 token 消耗(节奏形状用)
+        "hourly": today.get("hourly_tokens", [0] * 24),
+        # TIME 视图折线:近 7 天每日活跃分钟
+        "active7": [sum(p.get("active_min", 0) for p in d.get("projects", [])) for d in last7],
     }
     json.dump(out, sys.stdout, ensure_ascii=False)
     sys.stdout.write("\n")
