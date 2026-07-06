@@ -92,6 +92,27 @@ ln -s "$(pwd)" ~/.claude/skills/cc-reports
 
 ---
 
+## 桌面浮窗 cc-glance(macOS)
+
+不想开落地页、只想随时瞟一眼今天的用量?`menubar/` 里有一台常驻桌面的迷你终端——复古 CRT 设备造型,琥珀磷光屏,原生 Swift 编写,零第三方依赖。
+
+| WORK · 比产出 | TIME · 分时间 | 24H · 作息节奏 |
+|---|---|---|
+| ![WORK](assets/work.png) | ![TIME](assets/time.png) | ![24H](assets/24h.png) |
+
+- **三视图**(右侧物理按键切换):WORK 项目分段 LED 电平表 · TIME 总时长+频谱分配条+近7天折线 · 24H 雷达图看今天几点在干活
+- **口径诚实**:主数字是「产出」(output + cache_creation),不是被缓存重读灌水的 total
+- **交互**:`⌥⇧R` 全局开关浮窗 · 拖上下丝印带移动(位置记住) · 抽屉把手收起按键列只留屏幕 · 点 LED 熄屏 · 丝印带右键退出
+- **数据同源**:`cc-reports.py glance` 出精简 JSON,和 dashboard 一个内核,同样不联网
+
+```bash
+cd menubar
+./run.sh                    # 构建并启动
+./install-login-item.sh     # 可选:装成开机自启
+```
+
+---
+
 ## 项目识别 / 配置
 
 dashboard 会按三层优先级判断每个 session 算在哪个项目：
@@ -122,6 +143,8 @@ cc-reports/
 ├── cc-reports.py         主脚本（build + serve）
 ├── cc-reports.html       dashboard 模板（数据通过 fetch 加载）
 ├── cc_usage_core/        内核：jsonl 扫描 + 模型/定价注册表（纯标准库）
+├── menubar/              cc-glance 桌面浮窗（macOS · Swift · CRT 终端造型）
+├── assets/               README 配图
 ├── config.example.json   配置模板
 ├── .gitignore
 └── LICENSE

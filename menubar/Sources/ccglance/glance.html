@@ -32,7 +32,7 @@
 
   /* 丝印:在机身边距带内垂直居中 */
   .silk{position:absolute;height:19px;display:flex;align-items:center;
-        font-family:var(--mono);font-weight:600;font-size:10px;letter-spacing:.22em;
+        font-family:var(--mono);font-weight:600;font-size:8px;letter-spacing:.22em;
         color:var(--silk);text-shadow:0 -1px 0 rgba(0,0,0,.55),0 1px 0 rgba(255,255,255,.06);
         text-transform:uppercase;pointer-events:none}
   .silk.tl{top:0;left:24px}.silk.tr{top:0;right:44px}
@@ -45,6 +45,22 @@
     animation:br 3.2s ease-in-out infinite;
     -webkit-app-region:no-drag;cursor:pointer}
   .led.blink{animation:blink .4s ease-in-out 3}
+  /* 收起态:按键列消失,机身只剩屏幕;右缘留一个竖向卡扣用于展开 */
+  body.collapsed .device{grid-template-columns:1fr}
+  body.collapsed .kcol{display:none}
+  /* 抽屉把手(收纳/拉出共用材质):竖向卡扣 */
+  .latch{position:absolute;width:13px;height:48px;border-radius:7px;
+    display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(180deg,#333,#282828);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08),inset 0 -1px 2px rgba(0,0,0,.4),0 1px 3px rgba(0,0,0,.4);
+    color:#8a8a8a;cursor:pointer;-webkit-app-region:no-drag;transition:color .15s}
+  .latch:hover{color:#d0d0d0}
+  .latch svg{width:9px;height:9px}
+  /* 展开态把手:嵌在屏幕与按键列的缝里,贴按键板左缘 */
+  #kFold{left:-15px;top:50%;transform:translateY(-50%)}
+  /* 收起态把手:机身右缘 */
+  #kEdge{display:none;right:3px;top:50%;transform:translateY(-50%)}
+  body.collapsed #kEdge{display:flex}
   @keyframes br{0%,100%{opacity:.45;box-shadow:0 0 4px var(--amber),0 0 8px rgba(255,90,30,.35)}50%{opacity:1;box-shadow:0 0 6px var(--amber),0 0 14px rgba(255,90,30,.65)}}
   @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 
@@ -71,8 +87,8 @@
   .hero{display:flex;align-items:flex-end;gap:9px;margin:10px 0 6px;min-height:34px}
   .hero .n{font-size:38px;font-weight:700;line-height:.82;letter-spacing:-.02em}
   .hero .n i{font-style:normal;font-size:17px;font-weight:600;color:var(--amber-dim);letter-spacing:.02em;margin:0 1px}
-  .hero .u{font-size:10px;color:var(--amber-dim);padding-bottom:5px;letter-spacing:.1em;text-shadow:none;white-space:nowrap}
-  .hero .trend{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:3px;padding-bottom:2px}
+  .hero .u{font-size:10px;color:var(--amber-dim);padding-bottom:1px;letter-spacing:.1em;text-shadow:none;white-space:nowrap}
+  .hero .trend{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:3px;padding-bottom:0}
   .trend svg{width:112px;height:28px}
   .trend path{fill:none;stroke:var(--amber);stroke-width:1.4;vector-effect:non-scaling-stroke;filter:drop-shadow(0 0 3px rgba(255,90,30,.8))}
   .trend .tcap{font-size:8px;color:var(--amber-dim);letter-spacing:.14em;text-shadow:none}
@@ -123,9 +139,6 @@
   .scanning{display:flex;flex-direction:column;align-items:center;gap:12px;color:var(--amber-dim)}
   .scanning .cap{font-size:11px;letter-spacing:.3em;animation:br 1.6s ease-in-out infinite}
 
-  .bot{display:flex;justify-content:space-between;margin-top:11px;font-size:10px;letter-spacing:.08em;color:var(--amber-dim);text-shadow:none}
-  .bot b{color:var(--amber);font-weight:400}
-
   /* 按钮:切换组 + 动作组 */
   .kcol{align-self:center;width:100%;display:flex;flex-direction:column;gap:13px}
   .keys{width:100%;display:flex;flex-direction:column;gap:8px;
@@ -143,6 +156,11 @@
   .key.on{color:var(--amber);background:linear-gradient(180deg,#191919,#131313);
     text-shadow:0 0 10px rgba(255,90,30,.65);box-shadow:inset 0 2px 6px rgba(0,0,0,.85),inset 0 0 0 1px rgba(255,255,255,.07)}
   .key svg{width:13px;height:13px;flex:none}
+  .kcol{position:relative}
+  /* 动作组:一排二正方形 icon 键 */
+  .krow{flex-direction:row}
+  .krow .key{width:auto;flex:1;aspect-ratio:1/1;height:auto;padding:0}
+  .krow .key svg{width:15px;height:15px}
 </style>
 </head>
 <body>
@@ -150,16 +168,20 @@
     <div class="silk tl">CLAUDE·CODE / USAGE</div>
     <div class="silk tr">MOD-CC</div>
     <div class="silk bm">LOCAL DATA LINK · NO NETWORK</div>
-    <div class="led" id="led" title="刷新"></div>
+    <div class="led" id="led" title="隐藏浮窗(⌥⇧R 唤回)"></div>
+    <div class="latch" id="kEdge" title="展开按键区">
+      <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6.5 1.5 3 5l3.5 3.5"/>
+      </svg>
+    </div>
 
     <div class="bezel"><div class="screen">
       <div class="top">
-        <span id="topLeft">CC · TODAY</span>
+        <span id="topLeft">TODAY</span>
         <span class="live"><b></b>LIVE</span>
       </div>
       <div class="hero" id="hero"><span class="n">––</span></div>
       <div class="viz" id="viz"></div>
-      <div class="bot"><span>ACTIVE <b id="active">–</b></span><span><b id="sess">–</b> SESS</span></div>
     </div></div>
 
     <div class="kcol">
@@ -168,13 +190,24 @@
         <button class="key" id="kTime">TIME</button>
         <button class="key" id="k24h">24H</button>
       </div>
-      <div class="keys">
-        <button class="key" id="kOpen">OPEN
+      <div class="keys krow">
+        <button class="key" id="kSync" title="刷新数据">
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12.5 2.5v3.2h-3.2"/><path d="M1.5 11.5V8.3h3.2"/>
+            <path d="M2.6 5.4a4.9 4.9 0 0 1 8.1-1.9l1.8 1.7M1.5 8.8l1.8 1.7a4.9 4.9 0 0 0 8.1-1.9"/>
+          </svg>
+        </button>
+        <button class="key" id="kOpen" title="打开完整报告">
           <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
             <path d="M11.5 7.6v3.4a1.5 1.5 0 0 1-1.5 1.5H3a1.5 1.5 0 0 1-1.5-1.5V4A1.5 1.5 0 0 1 3 2.5h3.4"/>
             <path d="M9 1.5h3.5V5"/><path d="M12.3 1.7 6.8 7.2"/>
           </svg>
         </button>
+      </div>
+      <div class="latch" id="kFold" title="收起按键区">
+        <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3.5 1.5 7 5 3.5 8.5"/>
+        </svg>
       </div>
     </div>
   </div>
@@ -271,12 +304,9 @@
       $("viz").innerHTML=`<div class="scanning">${radarSVG(Array(24).fill(0),128,false)}<span class="cap">SCANNING...</span></div>`;
       return;
     }
-    const day=CUR.generated_at?["日","一","二","三","四","五","六"][new Date(CUR.generated_at).getDay()]:null;
-    $("topLeft").textContent="CC · TODAY"+(day?` · 星期${day}`:"");
+    $("topLeft").textContent="TODAY"+(CUR.sessions?` · ${CUR.sessions} SESS`:"");
     $("hero").innerHTML=heroHTML();
     $("viz").innerHTML=MODE==="work"?vizWork():MODE==="time"?vizTime():vizRhythm();
-    $("active").textContent=fm(CUR.active_min||0);
-    $("sess").textContent=CUR.sessions||0;
   }
 
   window.__setData=function(json){
@@ -294,7 +324,16 @@
   $("kTime").addEventListener("click",()=>setMode("time"));
   $("k24h").addEventListener("click",()=>setMode("24h"));
   $("kOpen").addEventListener("click",()=>post("openFull"));
-  $("led").addEventListener("click",()=>{$("led").classList.add("blink");post("refresh");setTimeout(()=>$("led").classList.remove("blink"),1300);});
+  const doSync=()=>{$("led").classList.add("blink");post("refresh");setTimeout(()=>$("led").classList.remove("blink"),1300);};
+  $("kSync").addEventListener("click",doSync);
+  // LED = 电源:点击隐藏浮窗(⌥⇧R 唤回)
+  $("led").addEventListener("click",()=>post("hide"));
+
+  // 折叠:按键列收起(icon 键)/ 展开(右缘卡扣)。Swift 同步收放窗宽并记住状态
+  function applyFold(f){ document.body.classList.toggle("collapsed",f); }
+  window.__setFold=applyFold;   // Swift 启动时恢复状态用
+  $("kFold").addEventListener("click",()=>{ applyFold(true);  post("fold"); });
+  $("kEdge").addEventListener("click",()=>{ applyFold(false); post("unfold"); });
 
   render();  // 初始 SCANNING 态
   requestAnimationFrame(()=>$("device").classList.add("in"));
