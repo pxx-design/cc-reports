@@ -15,7 +15,7 @@ by 布灵布灵灵 · [小红书](https://xhslink.com/m/1ht5s0trmNo) · [GitHub]
 
 ## 它给你看什么
 
-- **头部总览**：今天开了几个 session、发了多少 prompt、生成了多少 token、缓存命中率多高
+- **头部总览**：今天开了几个 session、发了多少 prompt、生成了多少 token、装了哪些 skill/MCP 在吃灰
 - **时段活动**：一天 24 根柱子，按模型堆叠，点柱子看当时用了哪个模型
 - **近 7 日趋势**：token / session / prompt 三条走势线，点圆点看当天详情
 - **token 构成**：output / 缓存写入 / input 分层，配一句话点评花在哪

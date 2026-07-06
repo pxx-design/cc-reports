@@ -1,6 +1,6 @@
 ---
 name: cc-reports
-description: 生成并打开 Claude Code 用量 dashboard——看自己今天/本周/本月用 cc 做了什么、发了多少 prompt、烧了多少 output token、cache 命中率多少、各项目分别花了多少时间。当用户说"看我的 cc 日报/周报/月报""我这周用 Claude Code 干了啥""我 cc 烧了多少 token""今天用 cc 做了什么""cc 用量/统计/报告"等时触发。100% 本地：只读 ~/.claude/projects 的 jsonl，不联网、不上传。
+description: 生成并打开 Claude Code 用量 dashboard——看自己今天/本周/本月用 cc 做了什么、发了多少 prompt、烧了多少 output token、装了哪些 skill/MCP 在吃灰、各项目分别花了多少时间。当用户说"看我的 cc 日报/周报/月报""我这周用 Claude Code 干了啥""我 cc 烧了多少 token""今天用 cc 做了什么""cc 用量/统计/报告"等时触发。100% 本地：只读 ~/.claude/projects 的 jsonl，不联网、不上传。
 ---
 
 # cc-reports · 生成 Claude Code 工作日报
@@ -251,7 +251,7 @@ dashboard 把每个 session-day 切片归到一个项目，按下面 3 层优先
 - **Hero · Sessions**：今天打开了几个独立 cc 对话
 - **Hero · Prompts**：你发了多少消息
 - **Hero · Output**：cc 真实生成的 token（不含 cache_read，那是缓存命中读取）
-- **Hero · Cache hit**：prompt 命中缓存的比例，越高越省钱（缓存命中价格只有 input 的 1/10）
+- **Hero · 闲置能力**：你亲手装的 skill / MCP 里，近 30 天没调用过的个数（装了没用）。点开看闲置清单——闲置≠浪费，是精简 / 重新发现候选，不是打分
 - **Daily / Weekly / Monthly** tab 切换三种粒度
 - 大多数图表上的元素都可点击，弹出详情
 

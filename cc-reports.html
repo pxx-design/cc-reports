@@ -2699,7 +2699,7 @@
 
     // Priority: highest-signal observation first
     if (hit >= 0.9 && cacheR > 50_000_000) {
-      return `<b>Cache hit ${Math.round(hit * 100)}%</b> · ${fmtTok(cacheR)} 命中缓存，没重读相当于<b>省了 ${fmtTok(cacheR * 0.9 / 1000)}k 次重新解析</b>。`;
+      return `<b>${fmtTok(cacheR)} 是缓存重读</b> · 占 token 大头。每轮都重读整段上下文（轮数 × 长度），反映对话重、开得久，<b>不是产出</b>——干了多少活看 output。`;
     }
     if (cacheWPct > 0.6) {
       return `<b>${Math.round(cacheWPct * 100)}% 在写 cache</b> · 今天主要在加载新上下文（读文件、装载 skills、扫历史），真正 output 仅 ${Math.round(outputPct * 100)}%。`;
@@ -2708,7 +2708,7 @@
       return `<b>Output 占 ${Math.round(outputPct * 100)}%</b> · 今天产出密度高，对话/工具调用都在生成内容。`;
     }
     if (outputPct < 0.05 && cacheWPct < 0.2) {
-      return `<b>${Math.round((input / computeTotal) * 100)}% 是 input</b> · 今天主要在大量重读旧上下文，建议看看哪些 prompt 没命中 cache。`;
+      return `<b>${Math.round((input / computeTotal) * 100)}% 是 input</b> · 今天多在读入新内容（文件 / 上下文），生成（output）占比低。`;
     }
     return `Output ${fmtTok(output)} · Cache write ${fmtTok(cacheW)} · Input ${fmtTok(input)}。`;
   }
