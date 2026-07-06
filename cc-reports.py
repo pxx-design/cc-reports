@@ -298,8 +298,94 @@ def _empty_slice():
     }
 
 
+# ─── Capability utilization (装了却没用) ────────────────
+# "你亲手装的能力":个人 skills(~/.claude/skills/*/SKILL.md) + 用户 config 里的 MCP。
+# 跟近 N 天真实调用比,算出闲置清单。插件捆绑的(lark-* 等)不计入,免得淹没信号。
+def _installed_capabilities():
+    home = os.path.expanduser("~")
+    skills = []
+    sk_dir = os.path.join(home, ".claude", "skills")
+    if os.path.isdir(sk_dir):
+        for name in sorted(os.listdir(sk_dir)):
+            p = os.path.join(sk_dir, name)
+            if not os.path.isfile(os.path.join(p, "SKILL.md")):
+                continue
+            # 排除软链进捆绑库(.agents/skills/,如 lark-* 一大坨)的——不算"你亲手装的"
+            if "/.agents/skills/" in os.path.realpath(p):
+                continue
+            skills.append(name)
+    mcp = set()
+    for cfg in [os.path.join(home, ".claude.json"),
+                os.path.join(home, ".claude", "settings.json")]:
+        try:
+            with open(cfg, encoding="utf-8") as fh:
+                mcp.update((json.load(fh).get("mcpServers") or {}).keys())
+        except Exception:
+            pass
+    return skills, sorted(mcp)
+
+
+def _used_capabilities(window_days=30):
+    """近 N 天真实调用过的 MCP server / skill(含子 agent 会话里的调用)。"""
+    cut = time.time() - window_days * 86400
+    used_mcp, used_skills = set(), set()
+    for f in glob.glob(os.path.join(PROJ_DIR, "**", "*.jsonl"), recursive=True):
+        try:
+            if os.path.getmtime(f) < cut:
+                continue
+        except OSError:
+            continue
+        try:
+            fh = open(f, encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        with fh:
+            for line in fh:
+                if '"tool_use"' not in line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                content = (rec.get("message") or {}).get("content")
+                if not isinstance(content, list):
+                    continue
+                for p in content:
+                    if not isinstance(p, dict) or p.get("type") != "tool_use":
+                        continue
+                    name = p.get("name", "")
+                    inp = p.get("input") or {}
+                    if name.startswith("mcp__"):
+                        parts = name.split("__")
+                        if len(parts) > 1:
+                            used_mcp.add(parts[1])
+                    elif name == "Skill":
+                        s = inp.get("skill", "")
+                        if s:
+                            used_skills.add(s)          # 个人 skill 无命名空间,可直接交集
+    return used_mcp, used_skills
+
+
+def compute_utilization(window_days=30):
+    skills_inst, mcp_inst = _installed_capabilities()
+    used_mcp, used_skills = _used_capabilities(window_days)
+
+    def part(installed, used):
+        inst = list(installed)
+        u = [x for x in inst if x in used]
+        idle = [x for x in inst if x not in used]
+        return {"installed": len(inst), "used": len(u),
+                "idle": idle, "used_names": sorted(u)}
+
+    return {
+        "window_days": window_days,
+        "mcp": part(mcp_inst, used_mcp),
+        "skills": part(skills_inst, used_skills),
+    }
+
+
 # ─── Aggregation ───────────────────────────────────────
-def build_data():
+def build_data(with_utilization=False):
     """Scan all jsonl files and aggregate per-day slices.
 
     A session that spans multiple local-tz days produces one slice per day.
@@ -417,7 +503,8 @@ def build_data():
         hourly_tokens_by_model = [defaultdict(int) for _ in range(24)]
         tokens = {"input": 0, "output": 0, "cache_read": 0, "cache_creation": 0, "total": 0}
         models = defaultdict(int)
-        projects = defaultdict(lambda: {"sessions": 0, "tokens": 0, "msgs": 0, "active_min": 0})
+        projects = defaultdict(lambda: {"sessions": 0, "tokens": 0, "output": 0,
+                                        "cache_creation": 0, "msgs": 0, "active_min": 0})
         sessions_list = []
         user_total = assistant_total = tool_uses_total = 0
 
@@ -453,6 +540,8 @@ def build_data():
 
             projects[primary]["sessions"] += 1
             projects[primary]["tokens"] += sl["tokens"]["total"]
+            projects[primary]["output"] += sl["tokens"]["output"]
+            projects[primary]["cache_creation"] += sl["tokens"]["cache_creation"]
             projects[primary]["msgs"] += sl["user_msgs"] + sl["assistant_msgs"]
             projects[primary]["active_min"] += active_min
 
@@ -497,6 +586,7 @@ def build_data():
         "today": today.isoformat(),
         "user": _current_user(CFG),  # 顶栏显示名:config→git→系统全名→登录名 回退
         "days": days_out,
+        "utilization": compute_utilization() if with_utilization else None,
     }
 
 
@@ -647,7 +737,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/data":
             t0 = time.time()
             try:
-                data = build_data()
+                data = build_data(with_utilization=True)
             except Exception as e:
                 self._send(500, json.dumps({"error": str(e)}), "application/json; charset=utf-8")
                 return
@@ -709,6 +799,50 @@ def cmd_build(args):
           f"{len(today['projects'])} projects")
 
 
+def cmd_glance(args):
+    """常驻浮层用的精简快照：只回今天(或近 N 天)的用量 + top 项目。
+    输出紧凑 JSON 到 stdout，供菜单栏 app 每次刷新时读取。"""
+    data = build_data()
+    days = data.get("days", [])
+    win = max(1, int(getattr(args, "days", 1) or 1))
+    sel = days[-win:] if days else []
+
+    tokens = {"input": 0, "output": 0, "cache_read": 0, "cache_creation": 0, "total": 0}
+    sessions = 0
+    proj_agg = {}  # name -> {tokens, active_min, sessions, fallback}
+    for d in sel:
+        for k in tokens:
+            tokens[k] += d["tokens"].get(k, 0)
+        sessions += d.get("sessions", 0)
+        for p in d.get("projects", []):
+            a = proj_agg.setdefault(p["name"], {"tokens": 0, "output": 0, "cache_creation": 0,
+                                                "active_min": 0, "sessions": 0,
+                                                "fallback": p.get("fallback", False)})
+            a["tokens"] += p.get("tokens", 0)
+            a["output"] += p.get("output", 0)
+            a["cache_creation"] += p.get("cache_creation", 0)
+            a["active_min"] += p.get("active_min", 0)
+            a["sessions"] += p.get("sessions", 0)
+
+    projects = sorted(
+        [{"name": n, **v} for n, v in proj_agg.items()],
+        key=lambda x: (x["fallback"], -x["tokens"]),
+    )
+    active_min = sum(p["active_min"] for p in projects)
+
+    out = {
+        "generated_at": data.get("generated_at"),
+        "range": {"days": win, "start": sel[0]["date"] if sel else None,
+                  "end": sel[-1]["date"] if sel else None},
+        "tokens": tokens,
+        "active_min": active_min,
+        "sessions": sessions,
+        "projects": projects[:8],
+    }
+    json.dump(out, sys.stdout, ensure_ascii=False)
+    sys.stdout.write("\n")
+
+
 def cmd_serve(args):
     port = args.port
     if port is None:
@@ -742,11 +876,16 @@ def main():
     sp = sub.add_parser("serve", help="live HTTP server")
     sp.add_argument("--port", type=int, default=None,
                     help="port to bind (default: auto-pick from 8765+)")
+    gp = sub.add_parser("glance", help="compact today's-usage JSON for the menubar widget")
+    gp.add_argument("--days", type=int, default=1,
+                    help="window size in days ending today (default: 1 = today)")
     args = parser.parse_args()
     if args.cmd == "build":
         cmd_build(args)
     elif args.cmd == "serve":
         cmd_serve(args)
+    elif args.cmd == "glance":
+        cmd_glance(args)
 
 
 if __name__ == "__main__":

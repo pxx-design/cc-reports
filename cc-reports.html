@@ -1584,6 +1584,29 @@
     padding-top: 12px;
     border-top: 1px solid var(--border);
   }
+  /* 弹层 body 首个 section 紧贴 head 底边框会形成双线——去掉它自己的顶边框 */
+  .popover-body > .popover-section:first-child {
+    margin-top: 4px;
+    padding-top: 0;
+    border-top: none;
+  }
+  /* 利用率比例条:填充=用过,浅色余量=闲置 */
+  .util-bar {
+    display: flex; height: 7px; border-radius: 4px; overflow: hidden;
+    background: var(--surface-alt); margin: 7px 0 2px;
+  }
+  .util-bar > i { background: var(--text-primary); }
+  .util-cat-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .util-cat-head > b {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .util-cat-head > span {
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary);
+  }
+  .util-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
   .popover-section > strong {
     display: block;
     font-family: var(--font-mono);
@@ -1773,6 +1796,21 @@
     const denom = (tk.input || 0) + (tk.cache_read || 0) + (tk.cache_creation || 0);
     return denom > 0 ? (tk.cache_read || 0) / denom : 0;
   };
+  // 「闲置能力」hero stat:你亲手装的 skill/MCP,近 N 天没碰的个数(装了没用)
+  // 窗口无关于日/周/月 tab——它是"你的配置"快照。静态模式(build)无此数据。
+  const utilStat = data => {
+    const u = data && data.utilization;
+    if (!u) return { label: "闲置能力", value: "—", sub: "需实时模式(serve)" };
+    const mIdle = u.mcp.idle.length, sIdle = u.skills.idle.length;
+    const total = mIdle + sIdle;
+    return {
+      label: "闲置能力",
+      value: String(total),
+      sub: total === 0
+        ? `装的全用上了 · 近${u.window_days}天`
+        : `MCP ${mIdle} · Skills ${sIdle} · 近${u.window_days}天没碰`,
+    };
+  };
 
   // Build N-day token series per project name across a day window.
   // Used by renderProjects to draw a sparkline next to each row (与卡片主指标 tokens 一致).
@@ -1871,8 +1909,7 @@
             sub: fmtInt(today.assistant_msgs) + " 次 assistant 回复" },
           { label: "Output", value: fmtTok(workToks),
             sub: workDelta !== null ? formatDelta(workDelta, "较昨日", fmtTok) : "output + cache write" },
-          { label: "Cache hit", value: promptTotal > 0 ? Math.round(hit * 100) + "%" : "—",
-            sub: promptTotal > 0 ? "已读 " + fmtTok(today.tokens.cache_read) : "无 prompts" },
+          utilStat(data),
         ],
         activity: {
           kind: "bar",
@@ -1978,8 +2015,7 @@
           sub: fmtInt(totalAssistant) + " 次 assistant 回复" },
         { label: "Output", value: fmtTok(workToks),
           sub: activeDays > 0 ? fmtTok(workToks / activeDays) + " / 活跃日" : "—" },
-        { label: "Cache hit", value: promptTotal > 0 ? Math.round(hit * 100) + "%" : "—",
-          sub: promptTotal > 0 ? "已读 " + fmtTok(tokens.cache_read) : "无 prompts" },
+        utilStat(data),
       ],
       activity: {
         kind: "heatmap",
@@ -3006,24 +3042,40 @@
         </div>
       </div>
     `,
-    "Cache hit": () => `
-      <div class="popover-head">
-        <span class="popover-title">Cache hit</span>
-        <span class="popover-sub">prompt 命中缓存的比例</span>
-      </div>
-      <div class="popover-body">
-        <p>Anthropic prompt caching 把对话前缀（system message / 历史对话 / 工具定义 / 加载的 skills / CLAUDE.md）缓存在服务端。下次同样前缀直接从缓存读，不重新解析。</p>
-        <p style="margin-top:8px">公式：<code>cache_read / (input + cache_read + cache_creation)</code></p>
-        <div class="popover-section">
-          <strong>为什么放在 hero</strong>
-          <p>cache_read 价格 = input 的 <strong>1/10</strong>。hit rate 97% 意味着实际花费比无缓存便宜约 <strong>8 倍</strong>。这是"cc 花得贵不贵"的真实信号。</p>
+    "闲置能力": () => {
+      const u = DATA && DATA.utilization;
+      if (!u) return `
+        <div class="popover-head"><span class="popover-title">闲置能力</span></div>
+        <div class="popover-body"><p>这项需实时模式:用 <code>cc-reports.py serve</code> 打开才算(静态 build 不含)。</p></div>`;
+      const chips = arr => arr.length
+        ? `<div class="util-chips">${arr.map(x => `<code>${escapeHTML(x)}</code>`).join("")}</div>`
+        : `<div class="popover-empty" style="padding:6px 0">全用上了 ✓</div>`;
+      const cat = (name, d) => {
+        const pct = d.installed > 0 ? Math.round(d.used / d.installed * 100) : 0;
+        return `
+          <div class="popover-section">
+            <div class="util-cat-head">
+              <b>${name}</b><span>用 ${d.used}/${d.installed} · 闲置 ${d.idle.length}</span>
+            </div>
+            <div class="util-bar"><i style="width:${pct}%"></i></div>
+            ${chips(d.idle)}
+          </div>`;
+      };
+      return `
+        <div class="popover-head">
+          <span class="popover-title">闲置能力</span>
+          <span class="popover-sub">你亲手装的 · 近 ${u.window_days} 天没调用过</span>
         </div>
-        <div class="popover-section">
-          <strong>怎么看</strong>
-          <p>95%+ 配置稳省钱 · 80–90% 正常 · 60% 以下值得查原因（频繁改 CLAUDE.md / skill 切换 / 长 idle 后缓存过期）</p>
+        <div class="popover-body">
+          ${cat("MCP", u.mcp)}
+          ${cat("Skills", u.skills)}
+          <div class="popover-section">
+            <strong>怎么看</strong>
+            <p>只统计你<strong>亲手装的</strong>(插件捆绑的 lark-* 等不计入)。<strong>闲置 ≠ 浪费</strong>——pdf / watch 这类看场景才用。当它是"精简 / 重新发现"候选清单,不是打分。</p>
+          </div>
         </div>
-      </div>
-    `,
+      `;
+    },
   };
 
   function setupProjectClicks() {
