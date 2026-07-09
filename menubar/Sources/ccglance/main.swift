@@ -337,27 +337,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { NSApp.terminate(nil) }
     }
 
-    // 打开完整 dashboard:复用已跑的 cc-reports(靠 /api/data 签名认准),否则冷启
+    // 打开完整 dashboard:复用已跑的 cc-reports,否则冷启。探活抓 / 页的 title 特征串认准
+    // 是自己(避免误开别的本地 server),而非抓 stdout——老写法 grep nohup serve 的 stdout,
+    // 但 print 块缓冲 + serve_forever 永不返回,URL 永远刷不到文件、首点必哑。用 / 而非
+    // /api/data 探活:/ 从磁盘秒回,/api/data 每次带 utilization 重建要 ~3s、短超时必落空。
+    // 后台线程跑、waitUntilExit 拿真实结果,回传 __openDone(ok) 收尾按钮 loading。
     @objc func openFull() {
         let py = scriptPath()
         let sh = """
-        for p in $(seq 8765 8784); do
-          if curl -s --max-time 3 "http://localhost:$p/api/data" | grep -q '"generated_at"'; then
-            open "http://localhost:$p/"; exit 0
-          fi
-        done
-        f=$(mktemp)
-        nohup /usr/bin/env python3 "\(py)" serve >"$f" 2>&1 &
-        for i in $(seq 1 60); do
-          u=$(grep -o 'http://localhost:[0-9]*/' "$f" | head -1)
-          [ -n "$u" ] && { open "$u"; exit 0; }
+        probe() {
+          for p in $(seq 8765 8784); do
+            curl -s --max-time 3 "http://localhost:$p/" | grep -q "Claude Code journal" && { echo "$p"; return 0; }
+          done
+          return 1
+        }
+        if p=$(probe); then open "http://localhost:$p/"; exit 0; fi
+        nohup /usr/bin/env python3 "\(py)" serve >/dev/null 2>&1 &
+        for i in $(seq 1 40); do
           sleep 0.25
+          if p=$(probe); then open "http://localhost:$p/"; exit 0; fi
         done
+        exit 1
         """
-        let t = Process()
-        t.executableURL = URL(fileURLWithPath: "/bin/bash")
-        t.arguments = ["-c", sh]
-        try? t.run()
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let t = Process()
+            t.executableURL = URL(fileURLWithPath: "/bin/bash")
+            t.arguments = ["-c", sh]
+            var ok = false
+            do { try t.run(); t.waitUntilExit(); ok = (t.terminationStatus == 0) } catch { ok = false }
+            DispatchQueue.main.async {
+                guard let self = self, self.webLoaded else { return }
+                self.web.evaluateJavaScript("window.__openDone(\(ok))")
+            }
+        }
     }
 }
 

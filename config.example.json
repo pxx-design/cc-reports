@@ -15,8 +15,16 @@
   ],
 
   "cwd_overrides": {
-    "//": "Force a specific absolute cwd to a project name, bypassing auto-detection.",
+    "//": "Force a specific absolute cwd (checked against the session's launch anchor first, then current cwd) to a project name, bypassing auto-detection.",
     "//example1": "/Users/me/work/secret-project -> Acme Beta",
     "//example2": "use this when auto-detection picks the wrong name"
-  }
+  },
+
+  "session_overrides": {
+    "//": "Pin a specific sessionId to a project (highest priority). For sessions that hop across many projects; `cc-reports doctor` prints these for you.",
+    "//example": "d4c35934-82d3-4342-89b7-f67a275a41f1 -> 21-recorder"
+  },
+
+  "//fallback_projects": "Names treated as non-project buckets: they sink to the bottom, never win the multi-project vote, and the widget warns when they dominate. Defaults to root files / general / claude-config; set the array below to extend.",
+  "fallback_projects": ["root files", "general", "claude-config"]
 }

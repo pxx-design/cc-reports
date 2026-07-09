@@ -207,54 +207,81 @@ def label_cwd(cwd):
 parse_ts = scan.parse_ts  # 时间戳解析统一走共享内核 (逐字相同实现)
 
 
-def path_to_project(path, session_cwd):
-    """Map a tool_use file_path to a project name, relative to the session's cwd.
+# 临时产物路径:harness scratchpad / 系统临时目录 —— 不算项目工作,不参与归类。
+# 只匹配前缀 /tmp、/private/tmp、macOS 真 TMPDIR /var/folders/…;不全局匹配
+# "/scratchpad/",否则会误伤用户真实的、名叫 scratchpad 的项目子目录。
+_TMP_RX = re.compile(r"^(/private)?(/tmp(/|$)|/var/folders/)")
 
-    - If path is inside session_cwd, the first-level directory becomes the project.
-    - Aliases from config.json are applied for legacy names.
-    - Files directly in session_cwd → matched against config.root_file_projects,
-      else "root files".
-    - Files outside the session's cwd → None (don't count).
+
+def path_to_project(path, session_cwd, anchor=None):
+    """Map a tool_use file_path to a project name.
+
+    Resolve against the session's **launch anchor** first (the cwd at session
+    start, stable across mid-session `cd`), then the running cwd as fallback.
+    This is what makes `cd 09-xhs; edit 09-xhs/foo.html` count as 09-xhs instead
+    of leaking into the "root files" bucket just because you walked into the dir.
+
+    - Temp / scratchpad paths → None (harness artifacts, not project work).
+    - First-level directory under the base becomes the project (aliased). Because
+      the anchor is tried first, `cd`-ing into a subdir and editing files there
+      still resolves via the workspace-relative first dir.
+    - A single loose file directly under the base → config.root_file_projects
+      match, else "root files". (Crediting a bare project dir launched *into*
+      by name is a layout-model concern, deliberately out of scope here.)
+    - `.claude/…` → "claude-config".
+    - Path under none of the bases → None (don't count).
     """
-    if not path or not isinstance(path, str) or not session_cwd:
+    if not path or not isinstance(path, str):
         return None
-    root = session_cwd.rstrip("/") + "/"
-    if not path.startswith(root):
+    if _TMP_RX.search(path):
         return None
-    rel = path[len(root):]
-    if not rel:
-        return None
-    parts = rel.split("/")
-    first = parts[0]
-
-    if len(parts) == 1:
-        for pat, name in CFG["_root_file_compiled"]:
-            if pat.match(first):
-                return name
-        return "root files"
-
-    if first == ".claude":
-        return "claude-config"
     aliases = CFG.get("project_aliases", {})
-    if first in aliases:
-        return aliases[first]
-    return first
+    for base in (anchor, session_cwd):
+        if not base:
+            continue
+        root = base.rstrip("/") + "/"
+        if not path.startswith(root):
+            continue
+        rel = path[len(root):]
+        if not rel:
+            continue
+        parts = rel.split("/")
+        first = parts[0]
+
+        if len(parts) == 1:
+            for pat, name in CFG["_root_file_compiled"]:
+                if pat.match(first):
+                    return name
+            return "root files"
+
+        if first == ".claude":
+            return "claude-config"
+        return aliases.get(first, first)
+    return None
 
 
-def project_for_session(session_cwd, project_counts, sid=None):
+def project_for_session(session_cwd, project_counts, sid=None, anchor=None):
     """Decide the primary project for a session-day slice.
 
     Priority (highest first):
       0. session_overrides config — user pins a specific sessionId to a project
-         (covers cases where the same session jumps between abstract names
-         like 'src' / 'claude-config' / 'general' across days)
-      1. cwd_overrides config — user explicitly maps an absolute cwd to a name
-      2. cwd is a single project root (build manifest present) → cwd basename
-      3. cwd is a workspace containing multiple projects → most-touched
-         first-level subdir from tool_use file_paths
+      1. cwd_overrides config — user maps an absolute cwd to a name
+      2. current cwd / launch anchor is a single project root (build manifest
+         present) → basename
+      3. workspace with multiple projects → most-touched **real** project from
+         tool_use file_paths. Fallback buckets (root files / claude-config / …)
+         are barred from *winning* the vote — they only settle it when no real
+         project got a single touch. This stops a pile of loose screenshots at
+         the workspace root from out-voting the actual project you worked on.
       4. No file_path data at all → "general"
+
+    For 1 & 2 the running cwd is tried **before** the launch anchor: where you
+    ended up working is more specific than where you started, so launching inside
+    a build-manifest project A and then `cd`-ing to project B credits B, not A.
     """
     aliases = CFG.get("project_aliases", {})
+    # cwd first, anchor second (more-specific wins); dedupe when they're equal
+    bases = list(dict.fromkeys(b for b in (session_cwd, anchor) if b))
 
     # 0. Per-session override (highest)
     session_map = CFG.get("session_overrides", {})
@@ -264,16 +291,21 @@ def project_for_session(session_cwd, project_counts, sid=None):
 
     # 1. Explicit cwd override
     overrides = CFG.get("cwd_overrides", {})
-    if session_cwd and session_cwd in overrides:
-        return overrides[session_cwd]
+    for base in bases:
+        if base in overrides:
+            return overrides[base]
 
-    # 2. Single-project cwd → use cwd basename
-    if session_cwd and is_project_root(session_cwd):
-        name = os.path.basename(session_cwd.rstrip("/"))
-        return aliases.get(name, name)
+    # 2. Single-project root → basename
+    for base in bases:
+        if is_project_root(base):
+            name = os.path.basename(base.rstrip("/"))
+            return aliases.get(name, name)
 
-    # 3. Multi-project workspace → most-touched first-level dir
+    # 3. Multi-project workspace → most-touched REAL project (fallbacks can't win)
     if project_counts:
+        real = {k: v for k, v in project_counts.items() if not is_fallback(k)}
+        if real:
+            return max(real.items(), key=lambda kv: kv[1])[0]
         return max(project_counts.items(), key=lambda kv: kv[1])[0]
 
     # 4. Nothing to go on
@@ -410,7 +442,8 @@ def build_data(with_utilization=False):
         if not sid:
             continue
         if sid not in session_meta:
-            session_meta[sid] = {"title": None, "first_prompt": None, "cwd": None, "branch": None}
+            session_meta[sid] = {"title": None, "first_prompt": None, "cwd": None,
+                                 "anchor": None, "branch": None}
         meta = session_meta[sid]
         t = rec.get("type")
 
@@ -434,6 +467,9 @@ def build_data(with_utilization=False):
             sl["user_msgs"] += 1
             if rec.get("cwd"):
                 meta["cwd"] = rec["cwd"]
+                # launch anchor = first real cwd of the session (temp dirs skipped)
+                if meta["anchor"] is None and not _TMP_RX.search(rec["cwd"]):
+                    meta["anchor"] = rec["cwd"]
             if rec.get("gitBranch"):
                 meta["branch"] = rec["gitBranch"]
             # 无 ai-title 时用首条真实 prompt 兜底 (headless 桥接会话靠这个自识别)
@@ -478,7 +514,7 @@ def build_data(with_utilization=False):
                     sl["tool_uses"] += 1
                     inp = c.get("input") or {}
                     fp = inp.get("file_path") or inp.get("path") or inp.get("notebook_path") or ""
-                    proj = path_to_project(fp, meta.get("cwd"))
+                    proj = path_to_project(fp, meta.get("cwd"), meta.get("anchor"))
                     if proj:
                         sl["project_counts"][proj] += 1
 
@@ -525,7 +561,8 @@ def build_data(with_utilization=False):
                     hourly_tokens_by_model[hi][m] += c
 
             meta = session_meta.get(sid, {})
-            primary = project_for_session(meta.get("cwd"), dict(sl["project_counts"]), sid=sid)
+            primary = project_for_session(meta.get("cwd"), dict(sl["project_counts"]),
+                                          sid=sid, anchor=meta.get("anchor"))
             start_local = sl["first_ts"].astimezone(TZ) if sl["first_ts"] else None
             end_local = sl["last_ts"].astimezone(TZ) if sl["last_ts"] else None
             # 活跃时长: 相邻事件间隔累加, 单段挂机封顶 5 分钟 (排除离开键盘的空窗,
@@ -552,6 +589,7 @@ def build_data(with_utilization=False):
                 "end": end_local.isoformat() if end_local else None,
                 "active_min": active_min,
                 "tokens": sl["tokens"]["total"],
+                "work": sl["tokens"]["output"] + sl["tokens"]["cache_creation"],
                 "branch": meta.get("branch") or "",
                 "cwd_label": label_cwd(meta.get("cwd") or "—"),
                 "project": primary,
@@ -842,6 +880,29 @@ def cmd_glance(args):
     )
     active_min = sum(p["active_min"] for p in projects)
 
+    # classification health: how much of the window's work landed in fallback
+    # buckets, and whether a fallback bucket is the single biggest by work.
+    # When either trips, the widget stops dimming it and raises a visible warning
+    # instead — a misclassified pile should read as "look here", not "ignore me".
+    # Gate on an absolute work floor so a pure-chat day (only "general", tiny work)
+    # doesn't scream "100% unclassified".
+    WARN_MIN_WORK = 100_000
+    real_tot = sum(p["work"] for p in projects)
+    tot_work = real_tot or 1
+    fb_work = sum(p["work"] for p in projects if p["fallback"])
+    by_work = sorted(projects, key=lambda x: -x["work"])
+    fb_share = fb_work / tot_work
+    fb_top = by_work[0]["name"] if by_work and by_work[0]["fallback"] else None
+    warn = real_tot >= WARN_MIN_WORK and (bool(fb_top) or fb_share > 0.30)
+    classify = {
+        "fallback_share": round(fb_share, 3),
+        "fallback_top": fb_top,                        # name of #1 bucket iff it's fallback
+        "warn": warn,
+    }
+    # normal order sinks fallbacks to the bottom (calm); but when we're warning,
+    # the offending bucket IS the story — order by work so it can't be sliced out.
+    ordered = by_work if warn else projects
+
     today = days[-1] if days else {}
     out = {
         "generated_at": data.get("generated_at"),
@@ -850,7 +911,8 @@ def cmd_glance(args):
         "tokens": {**tokens, "work": tokens["output"] + tokens["cache_creation"]},
         "active_min": active_min,
         "sessions": sessions,
-        "projects": projects[:8],
+        "classify": classify,
+        "projects": ordered[:8],
         # 24H 视图:今日每小时 token 消耗(节奏形状用)
         "hourly": today.get("hourly_tokens", [0] * 24),
         # TIME 视图折线:近 7 天每日活跃分钟
@@ -858,6 +920,101 @@ def cmd_glance(args):
     }
     json.dump(out, sys.stdout, ensure_ascii=False)
     sys.stdout.write("\n")
+
+
+def cmd_doctor(args):
+    """Self-serve classification triage.
+
+    Finds sessions whose work landed in a fallback bucket despite touching what
+    looks like a real project, guesses the intended project, and prints a
+    ready-to-paste config rule. Prints a clean bill of health when there's
+    nothing to fix — so a user with no jsonl-spelunking agent can still correct
+    the tool. Read-only: never writes config for you.
+    """
+    win = max(1, int(getattr(args, "days", 7) or 7))
+    # threshold is on WORK (output+cache_creation), matching the widget's headline
+    # metric — not total tokens, 97% of which is cache_read noise.
+    thresh = int(getattr(args, "min_work", 50_000) or 50_000)
+    data = build_data()
+    days = data.get("days", [])[-win:]
+
+    flagged = {}   # sid -> {"work":, "bucket":, "date":}
+    for d in days:
+        for s in d.get("sessions_list", []):
+            if is_fallback(s.get("project", "")) and s.get("work", 0) >= thresh:
+                cur = flagged.get(s["id"])
+                if not cur or s["work"] > cur["work"]:
+                    flagged[s["id"]] = {"work": s["work"], "bucket": s["project"],
+                                        "date": (s.get("start") or "")[:10]}
+    if not flagged:
+        print(f"✓ 近 {win} 天分类健康：没有 ≥{thresh:,} work 的会话落进兜底桶。")
+        return
+
+    # re-scan just the flagged sessions for anchor + touched top-level dirs
+    metas = {sid: {"anchor": None, "cwd": None} for sid in flagged}
+    dircnt = {sid: defaultdict(int) for sid in flagged}
+    for rec in scan.iter_records(scan.find_jsonl(PROJ_DIR, recursive=False)):
+        sid = rec.get("sessionId")
+        if sid not in flagged:
+            continue
+        mt = metas[sid]
+        if rec.get("type") == "user" and rec.get("cwd"):
+            mt["cwd"] = rec["cwd"]
+            if mt["anchor"] is None and not _TMP_RX.search(rec["cwd"]):
+                mt["anchor"] = rec["cwd"]
+        elif rec.get("type") == "assistant":
+            for c in ((rec.get("message") or {}).get("content") or []):
+                if isinstance(c, dict) and c.get("type") == "tool_use":
+                    inp = c.get("input") or {}
+                    fp = inp.get("file_path") or inp.get("path") or inp.get("notebook_path") or ""
+                    if not fp or _TMP_RX.search(fp):
+                        continue
+                    anc = mt["anchor"] or mt["cwd"]
+                    if anc and fp.startswith(anc.rstrip("/") + "/"):
+                        dircnt[sid][fp[len(anc.rstrip("/") + "/"):].split("/")[0]] += 1
+
+    aliases = CFG.get("project_aliases", {})
+    actionable, inert = [], 0
+    for sid, info in flagged.items():
+        anc = metas[sid]["anchor"]
+        # a real project signal = a touched top-level dir that isn't a loose file
+        # (has no ".") and isn't itself a fallback name. No signal → genuinely a
+        # config-only / loose-file / idle session; leave it in its fallback bucket.
+        segs = {k: v for k, v in dircnt[sid].items() if "." not in k and not is_fallback(k)}
+        if not segs:
+            inert += 1
+            continue
+        guess = max(segs.items(), key=lambda kv: kv[1])[0]
+        actionable.append((sid, info, anc, aliases.get(guess, guess)))
+
+    if not actionable:
+        print(f"✓ 近 {win} 天没有可归类的漏网会话"
+              f"（{inert} 个仅改配置 / 散文件 / 无文件活动的会话属正常兜底）。")
+        return
+
+    actionable.sort(key=lambda x: -x[1]["work"])
+    print(f"⚠ 近 {win} 天有 {len(actionable)} 个会话疑似漏归类"
+          f"（另有 {inert} 个仅改配置 / 散文件 / 无活动的会话属正常兜底，未列出）：\n")
+    sugg_cwd, sugg_sess = {}, {}
+    for sid, info, anc, guess in actionable:
+        top = sorted(dircnt[sid].items(), key=lambda kv: -kv[1])[:5]
+        print(f"  {sid[:8]}  {info['date']}  {info['work']:>10,} work  现归 [{info['bucket']}] → 建议 [{guess}]")
+        print(f"      launch: {label_cwd(anc or '—')}   触及: {dict(top)}")
+        # cwd_override only when the launch dir itself is the project dir (stable, reusable)
+        if anc and os.path.basename(anc.rstrip("/")) == guess and anc not in CFG.get("cwd_overrides", {}):
+            sugg_cwd[anc] = guess
+        else:
+            sugg_sess[sid] = guess
+    # Emit ONE valid JSON blob (json.dumps handles commas/escaping) — printing raw
+    # fragments with hand-rolled trailing commas would corrupt config.json on paste,
+    # and load_config silently falls back to all-defaults on a parse error.
+    snippet = {}
+    if sugg_cwd:
+        snippet["cwd_overrides"] = sugg_cwd
+    if sugg_sess:
+        snippet["session_overrides"] = sugg_sess
+    print("\n── 把下面这些键合并进你的 config.json（已有同名块就并进去）──")
+    print(json.dumps(snippet, ensure_ascii=False, indent=2))
 
 
 def cmd_serve(args):
@@ -896,6 +1053,11 @@ def main():
     gp = sub.add_parser("glance", help="compact today's-usage JSON for the menubar widget")
     gp.add_argument("--days", type=int, default=1,
                     help="window size in days ending today (default: 1 = today)")
+    dp = sub.add_parser("doctor", help="find mis-bucketed sessions + suggest config rules")
+    dp.add_argument("--days", type=int, default=7,
+                    help="window size in days ending today, capped at 30 (default: 7)")
+    dp.add_argument("--min-work", type=int, default=50_000, dest="min_work",
+                    help="ignore sessions below this work (output+cache_creation; default: 50000)")
     args = parser.parse_args()
     if args.cmd == "build":
         cmd_build(args)
@@ -903,6 +1065,8 @@ def main():
         cmd_serve(args)
     elif args.cmd == "glance":
         cmd_glance(args)
+    elif args.cmd == "doctor":
+        cmd_doctor(args)
 
 
 if __name__ == "__main__":

@@ -95,6 +95,13 @@
 
   .viz{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0}
 
+  /* 分类警示条:兜底桶占大头时亮起(P0-b),把"分错了"喊出来而非默默调暗 */
+  .warnbar{display:none;align-items:center;gap:5px;margin:0 0 8px;padding:4px 8px;border-radius:5px;
+    font-size:9px;letter-spacing:.05em;color:#ffb27a;text-shadow:none;
+    background:rgba(255,90,30,.14);box-shadow:inset 0 0 0 1px rgba(255,90,30,.42)}
+  .screen.warn .warnbar{display:flex}
+  .warnbar b{color:var(--amber-br);font-weight:700}
+
   /* WORK:分段 LED */
   .plist{display:flex;flex-direction:column;gap:12px}
   .prow{display:grid;grid-template-columns:108px 1fr 48px;align-items:center;gap:10px;font-size:10px;letter-spacing:.04em}
@@ -105,6 +112,10 @@
   .seg{flex:1;height:9px;border-radius:1.5px;background:rgba(255,90,30,.10)}
   .seg.on{background:var(--amber);box-shadow:0 0 5px rgba(255,90,30,.8)}
   .prow.fb .seg.on{background:var(--amber-dim);box-shadow:none}
+  /* 警示态:兜底桶反而是最大产出时,不压暗,改高亮+⚠,提示"看这里"而非"忽略" */
+  .prow.fb.lit{opacity:1}
+  .prow.fb.lit .seg.on{background:var(--amber);box-shadow:0 0 5px rgba(255,90,30,.8)}
+  .prow.fb.lit .pname::before{content:"⚠ ";color:#ffb27a}
 
   /* TIME:频谱堆叠 */
   .alloc{display:flex;flex-direction:column;gap:14px}
@@ -135,9 +146,24 @@
   .r-line .rt>i{display:block;height:100%;background:var(--amber);box-shadow:0 0 4px rgba(255,90,30,.7)}
   .r-line .rv{text-align:right;color:var(--amber-br)}
 
-  /* loading:SCANNING */
+  /* NO DATA 空态(vizWork/Time/Rhythm 复用) */
   .scanning{display:flex;flex-direction:column;align-items:center;gap:12px;color:var(--amber-dim)}
   .scanning .cap{font-size:11px;letter-spacing:.3em;animation:br 1.6s ease-in-out infinite}
+  /* loading:采集信号态(刷新/初始)——hero 让位,专设雷达居中,非 24H 视图搬运 */
+  .screen.scan .hero{display:none}
+  .scanwrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+  .sr-grid{fill:none;stroke:rgba(255,90,30,.18);stroke-width:1}
+  .sr-cross{stroke:rgba(255,90,30,.12);stroke-width:1}
+  .sr-sweep{animation:spin 2.6s linear infinite}
+  .sr-sweep path{fill:rgba(255,90,30,.16)}
+  .sr-ping{fill:none;stroke:var(--amber);stroke-width:1.4;animation:ping 2.6s ease-out infinite}
+  .sr-core{fill:var(--amber-br);filter:drop-shadow(0 0 4px var(--amber));animation:br 2s ease-in-out infinite}
+  @keyframes ping{0%{r:8;opacity:.85}70%{opacity:.12}100%{r:62;opacity:0}}
+  .scancap{font-size:13px;font-weight:700;letter-spacing:.4em;padding:5px 11px 5px calc(11px + .4em);
+    color:var(--screen);background:var(--amber);border-radius:3px;
+    box-shadow:0 0 12px rgba(255,90,30,.5),inset 0 0 0 1px rgba(255,180,140,.3);
+    animation:cap-pulse 1.1s ease-in-out infinite}
+  @keyframes cap-pulse{0%,100%{opacity:1;box-shadow:0 0 9px rgba(255,90,30,.4)}50%{opacity:.5;box-shadow:0 0 18px rgba(255,90,30,.75)}}
 
   /* 按钮:切换组 + 动作组 */
   .kcol{align-self:center;width:100%;display:flex;flex-direction:column;gap:13px}
@@ -147,7 +173,7 @@
     box-shadow:inset 0 2px 6px rgba(0,0,0,.72),inset 0 0 0 1px rgba(255,255,255,.03),0 1px 0 rgba(255,255,255,.05)}
   .key{height:40px;width:100%;border-radius:8px;border:none;cursor:pointer;
     display:flex;align-items:center;justify-content:center;gap:6px;
-    font-family:var(--sans);font-weight:700;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    font-family:var(--sans);font-weight:700;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;
     color:#9c9c9c;background:linear-gradient(180deg,#333,#2a2a2a);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.09),inset 0 -1px 2px rgba(0,0,0,.4),0 2px 4px rgba(0,0,0,.4);
     transition:transform .08s ease,color .12s}
@@ -159,8 +185,13 @@
   .kcol{position:relative}
   /* 动作组:一排二正方形 icon 键 */
   .krow{flex-direction:row}
-  .krow .key{width:auto;flex:1;aspect-ratio:1/1;height:auto;padding:0}
+  .krow .key{width:auto;flex:1;aspect-ratio:1/1;height:auto;padding:0;position:relative}
   .krow .key svg{width:15px;height:15px}
+  .key.busy{pointer-events:none}
+  .key.busy svg{opacity:0}
+  .key.busy::after{content:"";position:absolute;left:50%;top:50%;width:15px;height:15px;margin:-7.5px 0 0 -7.5px;
+    border-radius:50%;border:1.6px solid rgba(255,90,30,.25);border-top-color:var(--amber);animation:spin .7s linear infinite}
+  .key.err{color:#ff4d4d}.key.err svg{opacity:1}
 </style>
 </head>
 <body>
@@ -178,9 +209,10 @@
     <div class="bezel"><div class="screen">
       <div class="top">
         <span id="topLeft">TODAY</span>
-        <span class="live"><b></b>LIVE</span>
+        <span class="live"><b></b><span id="stamp">刷新 —</span></span>
       </div>
       <div class="hero" id="hero"><span class="n">––</span></div>
+      <div class="warnbar" id="warnbar"></div>
       <div class="viz" id="viz"></div>
     </div></div>
 
@@ -215,11 +247,20 @@
 <script>
   const $=id=>document.getElementById(id);
   let CUR=null, MODE="work";
+  let openTimer=0, syncTimer=0, scanning=false;
 
   const ft=n=>n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?Math.round(n/1e3)+"K":String(n|0);
   const fm=m=>m>=60?(m/60|0)+"H"+(m%60)+"M":m+"M";
   const heroHM=m=>m>=60?`${m/60|0}<i>h</i>${String(m%60).padStart(2,"0")}<i>m</i>`:`${m}<i>m</i>`;
   const esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  const relTime=iso=>{
+    const d=iso&&new Date(iso); if(!d||isNaN(d)) return "刷新 —";
+    const s=Math.max(0,(Date.now()-d.getTime())/1000);
+    if(s<45) return "刚刷新";
+    if(s<3600) return `${Math.round(s/60)}分钟前`;
+    if(s<86400) return `${Math.round(s/3600)}小时前`;
+    return `${Math.round(s/86400)}天前`;
+  };
 
   function trendSVG(vals,cap){
     if(!vals||!vals.length) return "";
@@ -261,10 +302,12 @@
     const projs=projList();
     if(!projs.length) return `<div class="scanning"><span class="cap">NO DATA</span></div>`;
     const maxV=Math.max(...projs.map(p=>p.work)),N=14;
+    const warn=!!(CUR.classify&&CUR.classify.warn);
     return `<div class="plist">`+projs.map(p=>{
       const on=Math.max(1,Math.round(p.work/maxV*N));
       const segs=Array.from({length:N},(_,i)=>`<span class="seg ${i<on?'on':''}"></span>`).join("");
-      return `<div class="prow ${p.fallback?'fb':''}"><span class="pname">${esc(p.name)}</span><div class="segs">${segs}</div><span class="pval">${ft(p.work)}</span></div>`;
+      const cls=(p.fallback?"fb":"")+(p.fallback&&warn?" lit":"");
+      return `<div class="prow ${cls}"><span class="pname">${esc(p.name)}</span><div class="segs">${segs}</div><span class="pval">${ft(p.work)}</span></div>`;
     }).join("")+`</div>`;
   }
 
@@ -299,19 +342,40 @@
   }
 
   function render(){
-    if(!CUR){
-      $("hero").innerHTML=`<span class="n">––</span>`;
-      $("viz").innerHTML=`<div class="scanning">${radarSVG(Array(24).fill(0),128,false)}<span class="cap">SCANNING...</span></div>`;
-      return;
-    }
+    if(!CUR){ showScanning(); return; }
+    const sc=document.querySelector(".screen");
+    sc.classList.remove("scan");
     $("topLeft").textContent="TODAY"+(CUR.sessions?` · ${CUR.sessions} SESS`:"");
+    $("stamp").textContent=relTime(CUR.generated_at);
     $("hero").innerHTML=heroHTML();
+    // 分类警示:兜底桶占大头时亮条(仅 WORK 视图,那才是分桶叙事)
+    const cl=CUR.classify||{}, warn=!!cl.warn&&MODE==="work";
+    sc.classList.toggle("warn",warn);
+    $("warnbar").innerHTML=warn?`⚠ <b>${Math.round((cl.fallback_share||0)*100)}%</b> 产出未归类 · 终端跑 <b>doctor</b> 归类`:"";
     $("viz").innerHTML=MODE==="work"?vizWork():MODE==="time"?vizTime():vizRhythm();
   }
 
+  // loading:专设「采集信号」态——干净雷达(无 24H 时刻标签)+ ping 扩散环 + 扫掠 + 脉动核心
+  function scanRadar(size){
+    const cx=85,cy=85,R=62;
+    return `<svg viewBox="0 0 170 170" style="width:${size}px;height:${size}px;flex:none">
+      <circle class="sr-grid" cx="${cx}" cy="${cy}" r="${R}"/><circle class="sr-grid" cx="${cx}" cy="${cy}" r="37"/>
+      <line class="sr-cross" x1="${cx-R}" y1="${cy}" x2="${cx+R}" y2="${cy}"/><line class="sr-cross" x1="${cx}" y1="${cy-R}" x2="${cx}" y2="${cy+R}"/>
+      <circle class="sr-ping" cx="${cx}" cy="${cy}" r="8"/>
+      <g class="sr-sweep" style="transform-origin:${cx}px ${cy}px"><path d="M${cx} ${cy} L${cx} ${cy-R} A${R} ${R} 0 0 1 ${(cx+R*0.87).toFixed(1)} ${(cy-R*0.5).toFixed(1)} Z"/></g>
+      <circle class="sr-core" cx="${cx}" cy="${cy}" r="2.6"/></svg>`;
+  }
+  function showScanning(){
+    const sc=document.querySelector(".screen");
+    sc.classList.add("scan"); sc.classList.remove("warn");  // 采集态清掉旧警示,免残留在雷达上方
+    $("stamp").textContent="读取中";
+    $("viz").innerHTML=`<div class="scanwrap">${scanRadar(184)}<div class="scancap">SCANNING…</div></div>`;
+  }
   window.__setData=function(json){
+    scanning=false; clearTimeout(syncTimer);
     try{CUR=typeof json==="string"?JSON.parse(json):json;render();}
-    catch(e){$("viz").innerHTML=`<div class="scanning"><span class="cap">DATA ERR</span></div>`;}
+    catch(e){document.querySelector(".screen").classList.remove("scan");  // 别卡在采集态(hero 永久隐藏)
+      $("viz").innerHTML=`<div class="scanning"><span class="cap">DATA ERR</span></div>`;}
   };
 
   function post(name){if(window.webkit?.messageHandlers?.ccg)window.webkit.messageHandlers.ccg.postMessage(name)}
@@ -319,12 +383,25 @@
     $("kWork").classList.toggle("on",m==="work");
     $("kTime").classList.toggle("on",m==="time");
     $("k24h").classList.toggle("on",m==="24h");
-    if(CUR)render();}
+    if(CUR&&!scanning)render();}
   $("kWork").addEventListener("click",()=>setMode("work"));
   $("kTime").addEventListener("click",()=>setMode("time"));
   $("k24h").addEventListener("click",()=>setMode("24h"));
-  $("kOpen").addEventListener("click",()=>post("openFull"));
-  const doSync=()=>{$("led").classList.add("blink");post("refresh");setTimeout(()=>$("led").classList.remove("blink"),1300);};
+  $("kOpen").addEventListener("click",()=>{
+    if($("kOpen").classList.contains("busy"))return;
+    $("kOpen").classList.remove("err"); $("kOpen").classList.add("busy");
+    post("openFull");
+    clearTimeout(openTimer); openTimer=setTimeout(()=>$("kOpen").classList.remove("busy"),20000);
+  });
+  window.__openDone=function(ok){
+    clearTimeout(openTimer); $("kOpen").classList.remove("busy");
+    if(!ok){$("kOpen").classList.add("err");setTimeout(()=>$("kOpen").classList.remove("err"),1600);}
+  };
+  const doSync=()=>{
+    if(scanning)return;
+    scanning=true; showScanning(); post("refresh");
+    clearTimeout(syncTimer); syncTimer=setTimeout(()=>{scanning=false; if(CUR)render();},10000);
+  };
   $("kSync").addEventListener("click",doSync);
   // LED = 电源:点击隐藏浮窗(⌥⇧R 唤回)
   $("led").addEventListener("click",()=>post("hide"));
@@ -336,6 +413,7 @@
   $("kEdge").addEventListener("click",()=>{ applyFold(false); post("unfold"); });
 
   render();  // 初始 SCANNING 态
+  setInterval(()=>{ if(CUR&&!scanning) $("stamp").textContent=relTime(CUR.generated_at); },30000);  // 相对时间随钟走
   requestAnimationFrame(()=>$("device").classList.add("in"));
 </script>
 </body>

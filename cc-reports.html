@@ -1813,7 +1813,7 @@
   };
 
   // Build N-day token series per project name across a day window.
-  // Used by renderProjects to draw a sparkline next to each row (与卡片主指标 tokens 一致).
+  // Used by renderProjects to draw a sparkline next to each row (与卡片主指标 work 一致).
   function attachProjectSparklines(projects, windowDays) {
     const series = new Map();
     const latestTitle = new Map();   // project -> most-recent ai-title
@@ -1821,7 +1821,7 @@
       for (const p of d.projects) {
         const key = p.name;
         if (!series.has(key)) series.set(key, new Array(windowDays.length).fill(0));
-        series.get(key)[di] = p.tokens || 0;
+        series.get(key)[di] = workTokens(p);
       }
       // walk this day's sessions; for each project, keep the latest session's title
       for (const s of (d.sessions_list || [])) {
@@ -1956,18 +1956,21 @@
       for (const k of Object.keys(tokens)) tokens[k] += d.tokens[k] || 0;
       for (const p of d.projects) {
         const key = p.name || p.path || p.label;
-        const cur = projAccum.get(key) || { name: key, label: p.label || key, sessions: 0, tokens: 0, msgs: 0, active_min: 0, fallback: !!p.fallback };
+        const cur = projAccum.get(key) || { name: key, label: p.label || key, sessions: 0, tokens: 0, output: 0, cache_creation: 0, msgs: 0, active_min: 0, fallback: !!p.fallback };
         cur.sessions += p.sessions;
         cur.tokens += p.tokens;
+        cur.output += (p.output || 0);
+        cur.cache_creation += (p.cache_creation || 0);
         cur.msgs += p.msgs;
         cur.active_min += (p.active_min || 0);
         projAccum.set(key, cur);
       }
       for (const s of d.sessions_list) allSessions.push(s);
     }
+    // 主指标 = work(产出 = output + cache_creation, 甩掉 cache_read)——与浮窗一致
     const projectsRaw = [...projAccum.values()].sort((a, b) => {
       if (!!a.fallback !== !!b.fallback) return a.fallback ? 1 : -1;  // 真项目在前, 兜底桶沉底
-      return b.tokens - a.tokens;
+      return workTokens(b) - workTokens(a);
     });
     const projects = attachProjectSparklines(projectsRaw, subset);
     allSessions.sort((a, b) => b.tokens - a.tokens);
@@ -2734,8 +2737,8 @@
             <div class="folder-thumb-text">${escapeHTML(latestTitle || "—")}</div>
           </div>
           <div class="folder-name">${escapeHTML(p.label)}</div>
-          <div class="folder-duration">${fmtTok(p.tokens)} <span class="folder-unit">tokens</span></div>
-          <div class="folder-meta">${p.sessions} 个 session · 活跃 ${fmtMin(p.active_min || 0)}</div>
+          <div class="folder-duration">${fmtTok(workTokens(p))} <span class="folder-unit">产出</span></div>
+          <div class="folder-meta">${p.sessions} 个 session · 活跃 ${fmtMin(p.active_min || 0)} · ${fmtTok(p.tokens)} tok 总量</div>
           <div class="folder-corner"></div>
           ${stampHTML}
           <div class="folder-details" data-loaded="0"></div>
@@ -2772,11 +2775,11 @@
     }
 
     // Top-3 share insight (only for weekly/monthly where top-3 has meaning)
-    let metaInsight = "按 token 用量排序";
+    let metaInsight = "按产出排序";
     const realProjects = projects.filter(p => !p.fallback);
-    const totalTok = realProjects.reduce((a, p) => a + (p.tokens || 0), 0);
+    const totalTok = realProjects.reduce((a, p) => a + workTokens(p), 0);
     if (!isDaily && realProjects.length >= 4) {
-      const top3Tok = realProjects.slice(0, 3).reduce((a, p) => a + (p.tokens || 0), 0);
+      const top3Tok = realProjects.slice(0, 3).reduce((a, p) => a + workTokens(p), 0);
       const share = totalTok > 0 ? Math.round((top3Tok / totalTok) * 100) : 0;
       metaInsight += ` · <strong style="color:var(--text-primary)">Top 3 占 ${share}%</strong>`;
     }
@@ -2799,29 +2802,31 @@
   function buildProjectsNarrative(projects, range) {
     const real = projects.filter(p => !p.fallback);
     const buckets = projects.filter(p => p.fallback);
-    const totalTok = projects.reduce((a, p) => a + (p.tokens || 0), 0);
-    const realTok = real.reduce((a, p) => a + (p.tokens || 0), 0);
+    const totalTok = projects.reduce((a, p) => a + workTokens(p), 0);
+    const realTok = real.reduce((a, p) => a + workTokens(p), 0);
     if (!real.length || realTok <= 0) return "";
     const periodWord = range === "daily" ? "今天" : (range === "weekly" ? "本周" : "本月");
     const top1 = real[0];
-    const top1Share = top1.tokens / realTok;
+    const top1Work = workTokens(top1);
+    const top1Share = top1Work / realTok;
     const top1Pct = Math.round(top1Share * 100);
 
     const sentences = [];
 
-    // sentence 1: dominance / dispersion of top-1 real project (按 token 用量 — 主指标, 兜底桶不参与)
+    // sentence 1: dominance / dispersion of top-1 real project (按产出 — 主指标, 兜底桶不参与)
     if (top1Share >= 0.55) {
-      sentences.push(`${periodWord}主线明确——<b>${escapeHTML(top1.label)}</b> 一项就占了 <b>${top1Pct}%</b> 用量（${fmtTok(top1.tokens)} tokens），其余项目都是配角。`);
+      sentences.push(`${periodWord}主线明确——<b>${escapeHTML(top1.label)}</b> 一项就占了 <b>${top1Pct}%</b> 产出（${fmtTok(top1Work)}），其余项目都是配角。`);
     } else if (top1Share >= 0.30) {
       const top2 = real[1];
-      if (top2 && top2.tokens > 0) {
-        const gapPct = Math.round((1 - top2.tokens / top1.tokens) * 100);
-        sentences.push(`主线 <b>${escapeHTML(top1.label)}</b>（${fmtTok(top1.tokens)} tokens, ${top1Pct}%），跟次线 <b>${escapeHTML(top2.label)}</b>（${fmtTok(top2.tokens)} tokens）拉开 ${gapPct}% 差距。`);
+      const top2Work = top2 ? workTokens(top2) : 0;
+      if (top2 && top2Work > 0) {
+        const gapPct = Math.round((1 - top2Work / top1Work) * 100);
+        sentences.push(`主线 <b>${escapeHTML(top1.label)}</b>（${fmtTok(top1Work)}, ${top1Pct}%），跟次线 <b>${escapeHTML(top2.label)}</b>（${fmtTok(top2Work)}）拉开 ${gapPct}% 差距。`);
       } else {
         sentences.push(`${periodWord}主线 <b>${escapeHTML(top1.label)}</b>（${top1Pct}%）。`);
       }
     } else {
-      sentences.push(`${periodWord}用量分散在 <b>${real.length}</b> 个项目，Top 1（${escapeHTML(top1.label)}）仅占 <b>${top1Pct}%</b>，没有强势主线。`);
+      sentences.push(`${periodWord}产出分散在 <b>${real.length}</b> 个项目，Top 1（${escapeHTML(top1.label)}）仅占 <b>${top1Pct}%</b>，没有强势主线。`);
     }
 
     // sentence 2: 活跃时长 head/tail split (≥ 3 real projects) — 跟 token 用量互补的一条
@@ -2838,11 +2843,11 @@
 
     // sentence 3: 诚实披露未归类占比 (兜底桶不进主线, 但要说清楚跑哪了)
     if (buckets.length && totalTok > 0) {
-      const bucketTok = buckets.reduce((a, p) => a + (p.tokens || 0), 0);
+      const bucketTok = buckets.reduce((a, p) => a + workTokens(p), 0);
       const bucketPct = Math.round((bucketTok / totalTok) * 100);
       if (bucketPct >= 5) {
         const names = buckets.slice(0, 3).map(b => escapeHTML(b.label)).join(" / ");
-        sentences.push(`<span class="insight-muted">另有 <b>${bucketPct}%</b> 用量落在未归类（${names}${buckets.length > 3 ? " 等" : ""}），不计入主线。</span>`);
+        sentences.push(`<span class="insight-muted">另有 <b>${bucketPct}%</b> 产出落在未归类（${names}${buckets.length > 3 ? " 等" : ""}），不计入主线。</span>`);
       }
     }
 

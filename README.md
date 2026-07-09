@@ -115,13 +115,26 @@ cd menubar
 
 ## 项目识别 / 配置
 
-dashboard 会按三层优先级判断每个 session 算在哪个项目：
+每个 session 的文件路径都相对它的**启动目录（launch anchor）**解析——就算你中途 `cd` 进某个子目录直接改文件，也照样算回那个子目录所属的项目，不会掉进 "root files"。`/tmp`、scratchpad 等临时产物不参与归类。在此之上按五层优先级判定：
 
-1. **`cwd_overrides`**（最高）：把某个绝对路径强制指定成项目名
-2. **单项目根**：cwd 里有 `package.json` / `Cargo.toml` / `pyproject.toml` 等构建清单，就用目录名当项目名（`.git` 单独存在不算，很多 workspace 也用 git）
-3. **多项目 workspace**：看这个 session 里 Edit / Write 最多的第一级子目录；没有文件操作就归 "general"
+0. **`session_overrides`**（最高）：把某个 sessionId 钉死成项目名（应付跨天在多个项目间跳的会话）
+1. **`cwd_overrides`**：把某个绝对路径映射成项目名（先查 anchor，再查当前 cwd）
+2. **单项目根**：anchor/cwd 里有 `package.json` / `Cargo.toml` / `pyproject.toml` 等构建清单，就用目录名当项目名（`.git` 单独存在不算，很多 workspace 也用 git）
+3. **多项目 workspace**：看这个 session 里 Edit / Write 最多的**真实项目**第一级子目录；兜底桶（root files / claude-config 等）不参与竞选，只在真项目零票时垫底
+4. 完全没有文件操作 → "general"
 
-默认体验已经够用——大多数人 `cd` 进项目根目录再开 cc，第 2 步就认对了。想自定义就把 `config.example.json` 复制成 `config.json`，改完在浏览器点「刷新」即可生效，不用重启。
+默认体验够用——大多数布局第 2/3 步就认对了。想自定义就把 `config.example.json` 复制成 `config.json`，改完在浏览器点「刷新」即可生效，不用重启。
+
+### 分错了怎么办
+
+如果浮窗顶部亮起 `⚠ N% 产出未归类`，或你觉得某天数字不对，跑一条命令自查：
+
+```bash
+python3 cc-reports.py doctor          # 近 7 天，列出落进兜底桶的大额会话
+python3 cc-reports.py doctor --days 30 --min-tokens 500000
+```
+
+它会指出哪些会话疑似漏归类、猜出真实项目，并直接吐出可粘进 `config.json` 的 `cwd_overrides` / `session_overrides` 规则行——不用手翻日志。
 
 ---
 
