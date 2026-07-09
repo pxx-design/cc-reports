@@ -12,6 +12,7 @@ __pycache__/
 # Logs / scratch
 *.log
 .cc-reports-server.log
+scratchpad/
 
 # OS
 .DS_Store
