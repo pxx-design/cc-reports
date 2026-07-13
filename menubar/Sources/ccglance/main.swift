@@ -77,7 +77,7 @@ func statusIcon() -> NSImage {
 
 // ── 拖动把手:盖在 WebView 上的原生条,mouseDown 即拖窗 ──
 // (WKWebView 不认 -webkit-app-region,必须原生接管)
-final class DragBar: NSView {
+class DragBar: NSView {
     override func mouseDown(with event: NSEvent) {
         window?.performDrag(with: event)
     }
@@ -98,6 +98,17 @@ final class DragBar: NSView {
     }
 }
 
+// ── 桌宠拖拽层:盖住顶部小人区(212×88 设计px),按住即拖窗,双击转发 JS 续杯 ──
+final class PetBar: DragBar {
+    override func mouseDown(with event: NSEvent) {
+        if event.clickCount == 2 {
+            globalDelegate?.web.evaluateJavaScript("window.__pet&&window.__pet.refill&&window.__pet.refill()")
+            return
+        }
+        super.mouseDown(with: event)   // DragBar: performDrag
+    }
+}
+
 // ── App ─────────────────────────────────────────────────────
 final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKScriptMessageHandler {
     var item: NSStatusItem!
@@ -115,6 +126,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         refresh()
         timer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
             self?.refresh()
+        }
+        // 桌宠动画在顶部透明区移动(爱心/起跳),透明窗口的系统投影缓存不跟着刷,
+        // 会留灰色半透明鬼影——定期重算投影兜底
+        Timer.scheduledTimer(withTimeInterval: 0.8, repeats: true) { [weak self] _ in
+            guard let self = self, self.panel.isVisible else { return }
+            self.panel.invalidateShadow()
         }
         // 常驻浮窗定位:启动即显示(⌥⇧R / 点图标可收起)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
@@ -178,7 +195,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     // ── 浮窗 ──
     // 设计稿 520×360,整体缩至 2/3(shona: 屏上原尺寸偏大)
+    // +80 设计高:顶部桌宠区(小人坐在框顶沿,HTML .device margin-top:80px 对应)
     let zoom: CGFloat = 2.0 / 3.0
+    let petStrip: CGFloat = 80
     let store = UserDefaults(suiteName: "com.shona.ccglance")!
     var folded: Bool { store.bool(forKey: "ccg.folded") }
     // 收起 = 按键列(96)+列间距(15)收进去,只剩屏幕
@@ -186,7 +205,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     func setupPanel() {
         let zoom = self.zoom
-        let size = NSSize(width: panelWidth, height: 360 * zoom)
+        let size = NSSize(width: panelWidth, height: (360 + petStrip) * zoom)
         panel = NSPanel(contentRect: NSRect(origin: .zero, size: size),
                         styleMask: [.borderless, .nonactivatingPanel],
                         backing: .buffered, defer: false)
@@ -217,13 +236,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         web.autoresizingMask = [.width, .height]
         container.addSubview(web)
         let barH = 19 * zoom
-        let topBar = DragBar(frame: NSRect(x: 0, y: size.height - barH,
+        // 顶部拖拽条下移到机身丝印带(桌宠区在其上,留给小人点击)
+        let topBar = DragBar(frame: NSRect(x: 0, y: size.height - petStrip * zoom - barH,
                                            width: size.width - 52 * zoom, height: barH))  // 右侧留给 LED 点击
         topBar.autoresizingMask = [.width, .minYMargin]
         let bottomBar = DragBar(frame: NSRect(x: 0, y: 0, width: size.width, height: barH))
         bottomBar.autoresizingMask = [.width, .maxYMargin]
+        // 桌宠带=拖动热区(shona 点名):按住小人拖窗,双击续杯
+        let petBar = PetBar(frame: NSRect(x: 0, y: size.height - 88 * zoom,
+                                          width: 212 * zoom, height: 88 * zoom))
+        petBar.autoresizingMask = [.minYMargin]
         container.addSubview(topBar)
         container.addSubview(bottomBar)
+        container.addSubview(petBar)
         panel.contentView = container
 
         // 拖完即记住位置(下次开窗回到原位)
