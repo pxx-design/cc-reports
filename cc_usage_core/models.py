@@ -15,6 +15,7 @@ MODELS = [
     {"id": "claude-opus-4-8",           "family": "opus",   "price": ( 5.0, 25.0,  6.25, 0.50)},
     {"id": "claude-opus-4-7",           "family": "opus",   "price": ( 5.0, 25.0,  6.25, 0.50)},
     {"id": "claude-opus-4-6",           "family": "opus",   "price": ( 5.0, 25.0,  6.25, 0.50)},
+    {"id": "claude-sonnet-5",           "family": "sonnet", "price": ( 3.0, 15.0,  3.75, 0.30)},  # 官方 intro $2/$10 至 2026-08-31; 此处用价目表标准价, 与"等效 API 成本"口径一致
     {"id": "claude-sonnet-4-6",         "family": "sonnet", "price": ( 3.0, 15.0,  3.75, 0.30)},
     {"id": "claude-haiku-4-5-20251001", "family": "haiku",  "price": ( 1.0,  5.0,  1.25, 0.10)},
     {"id": "claude-haiku-4-5",          "family": "haiku",  "price": ( 1.0,  5.0,  1.25, 0.10)},

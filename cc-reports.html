@@ -57,7 +57,9 @@
     align-items: center;
     padding: 0 24px;
     gap: 16px;
-    position: sticky; top: 0; z-index: 10;
+    /* 必须压过 .controls(z-30)/.export-wrap(z-31)/.folder-card.is-open(z-30),
+       否则滚动时它们会从导航栏上面漂过去 */
+    position: sticky; top: 0; z-index: 60;
   }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; }
   .brand-mark {
@@ -77,6 +79,50 @@
   }
   .crumbs .sep { opacity: 0.5; }
   .crumbs .here { color: var(--text-primary); }
+
+  /* ─── 停靠版区间切换 ────────────────────────────────
+     不照搬页面上那套 pill 分段控件(灰槽+白块+阴影)——那个密度进 56px 导航栏太笨重。
+     这里降级成导航栏自己的文字语言:mono 小字、选中项一块无阴影浅底 chip,
+     跟面包屑同族, 读起来像面包屑长出来的一节。
+     常驻占位(只动 opacity/transform), 停靠时不触发导航栏重排。 */
+  .dock-tabs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 12px;
+    padding-left: 14px;
+    border-left: 1px solid var(--border);
+    opacity: 0;
+    transform: translateY(-5px);
+    pointer-events: none;
+    transition: opacity 180ms ease-out, transform 180ms ease-out;
+  }
+  body.is-docked .dock-tabs {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+    transition-delay: 60ms;   /* 让页面控件条先退场, 不同框两份 tab */
+  }
+  .dock-tab {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: -0.1px;
+    color: var(--text-tertiary);
+    padding: 4px 9px;
+    border-radius: 5px;
+    transition: color 140ms ease-out, background 140ms ease-out;
+  }
+  .dock-tab:hover { color: var(--text-primary); }
+  .dock-tab[aria-selected="true"] {
+    color: var(--text-primary);
+    background: var(--surface-alt);
+  }
+
+  /* 页面控件条不做淡出:停靠恰好发生在它整个滑进导航栏底下之时(topbar 不透明且 z-60),
+     它是被遮住的,再叠一层 opacity 动画既看不见、又会跟 .reveal 的 keyframes 打架。 */
   .topbar-spacer { flex: 1; }
   .meta-stamp {
     font-family: var(--font-mono);
@@ -433,20 +479,50 @@
   }
   .chart-hourly svg { display: block; width: 100%; height: 200px; }
 
-  /* waveform-style hourly chart */
-  .chart-waveform {
+  /* hourly bar chart — 左图右析 */
+  .chart-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr);
+    gap: 24px;
     padding: 20px 24px 12px;
   }
+  .chart-main { min-width: 0; }
   .chart-waveform svg {
     display: block;
     width: 100%;
-    height: 110px;
+    height: auto;
   }
-  .chart-waveform .bar-cell {
-    transition: opacity 150ms ease-out;
+  /* hover 不压暗其它柱子 —— 只有命中列的指针反馈,数据一直看得清 */
+  .chart-row .model-usage { padding: 14px 0 0; }
+
+  /* 右侧解析 — 与热力图侧栏同一套 rhythm-* 语言 */
+  .chart-aside {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border-left: 1px solid var(--border);
+    padding-left: 22px;
   }
-  .chart-waveform:hover .bar-cell { opacity: 0.55; }
-  .chart-waveform .bar-hit:hover ~ .bar-cell { opacity: 1; }
+  /* 三行:统计 / 时段占比 / 解析 */
+  .chart-aside .rhythm-row { display: flex; gap: 26px; }
+  .chart-aside .rhythm-value { font-size: 19px; }
+  .chart-aside .rhythm-sub { margin-top: 5px; }
+  .chart-aside .rhythm-insight { margin-top: 0; }
+  .chart-aside > .rhythm-narrative {
+    margin-top: 0;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+  }
+
+  @media (max-width: 760px) {
+    .chart-row { grid-template-columns: 1fr; }
+    .chart-aside {
+      border-left: 0;
+      padding-left: 0;
+      border-top: 1px solid var(--border);
+      padding-top: 18px;
+    }
+  }
   .axis-row {
     margin-top: 6px;
     display: grid;
@@ -461,15 +537,6 @@
     padding-top: 4px;
   }
   .axis-row span.peak { color: var(--text-primary); font-weight: 500; }
-
-  .chart-foot {
-    padding: 12px 24px 18px;
-    display: flex; justify-content: space-between;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--text-tertiary);
-  }
-  .chart-foot strong { color: var(--text-primary); font-weight: 500; }
 
   /* ─── Heatmap ───────────────────────────────────────── */
   .heatmap-row {
@@ -564,13 +631,14 @@
     background: var(--surface-alt);
     margin-bottom: 6px;
   }
+  /* 四段等距拉开,首段炭灰不用纯黑 —— 与 MODEL_SHADES 同一套灰阶语言 */
   .rhythm-bar-seg {
-    background: var(--text-primary);
+    background: #3a3a3a;
     transition: opacity 150ms;
   }
-  .rhythm-bar-seg.rb-afternoon { background: #4d4d4d; }
-  .rhythm-bar-seg.rb-evening   { background: #8a8a8a; }
-  .rhythm-bar-seg.rb-night     { background: #c8c8c8; }
+  .rhythm-bar-seg.rb-afternoon { background: #7a7a7a; }
+  .rhythm-bar-seg.rb-evening   { background: #adadad; }
+  .rhythm-bar-seg.rb-night     { background: #dadada; }
   .rhythm-bar-legend {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -889,6 +957,30 @@
     --shelf-top:     #ffffff;
     --shelf-mid:     #e8e8e5;
     --shelf-bot:     #c2c2bf;
+  }
+  /* 各项目时间占比 · % 在条外(依次变小的排版)+ 项目名小字在条内 */
+  .projects-insight .psum { margin: 6px 0 18px; }
+  .projects-insight .psum-cap {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.4); margin-bottom: 10px;
+  }
+  .projects-insight .ppct-row { display: flex; align-items: flex-end; margin-bottom: 7px; }
+  .projects-insight .ppct { display: flex; justify-content: center; align-items: flex-end; min-width: 0; }
+  .projects-insight .ppct b { font-family: var(--font-mono); font-weight: 600; letter-spacing: -0.02em; line-height: 1; white-space: nowrap; }
+  .projects-insight .pbar { display: flex; height: 26px; border-radius: 5px; overflow: hidden; }
+  .projects-insight .pseg {
+    height: 100%; display: flex; align-items: center; justify-content: center;
+    padding: 0 4px; overflow: hidden; color: #171717;
+    box-shadow: inset -1px 0 0 var(--text-primary);
+  }
+  .projects-insight .pseg:last-child { box-shadow: none; }
+  .projects-insight .pseg-name { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  #psum-tip {
+    position: fixed; z-index: 9999; pointer-events: none; opacity: 0;
+    background: #fff; color: #171717; border-radius: 6px; padding: 5px 9px;
+    font-family: var(--font-mono); font-size: 11px; white-space: nowrap;
+    box-shadow: rgba(0,0,0,0.08) 0 0 0 1px, rgba(0,0,0,0.18) 0 6px 16px;
+    transition: opacity .1s ease-out;
   }
   .projects-section .proj-list {
     background: var(--desk);
@@ -1456,15 +1548,6 @@
   }
   /* ─── Daily per-model token breakdown ─────────────── */
   .model-usage { padding: 2px 24px 10px; }
-  .model-usage-bar {
-    display: flex;
-    height: 6px;
-    border-radius: 3px;
-    overflow: hidden;
-    background: var(--g1);
-    margin-bottom: 12px;
-  }
-  .model-usage-bar > span { height: 100%; }
   .mu-row {
     display: grid;
     grid-template-columns: minmax(96px, 1.2fr) auto 40px 1fr;
@@ -1487,8 +1570,6 @@
   .mu-share { color: var(--text-tertiary); text-align: right; font-variant-numeric: tabular-nums; }
   .mu-meta { color: var(--text-tertiary); text-align: right; font-size: 11px; }
   .bar-cell { transition: opacity 150ms ease-out; }
-  .bar-hit:hover ~ .bar-cell,
-  svg:has(.bar-hit:hover) .bar-cell { opacity: 0.85; }
 
   /* ─── Generic click popover ──────────────────────────── */
   .data-popover {
@@ -1496,11 +1577,12 @@
     z-index: 100;
     min-width: 220px;
     max-width: 320px;
+    max-height: 78vh;
+    overflow-y: auto;
     background: var(--surface);
-    border: 1px solid var(--border-strong);
     border-radius: var(--radius-md);
     box-shadow: rgba(0,0,0,0.08) 0px 0px 0px 1px,
-                rgba(0,0,0,0.12) 0px 8px 24px 0px;
+                rgba(0,0,0,0.08) 0px 4px 12px 0px;
     padding: 14px 16px;
     font-size: 13px;
     color: var(--text-primary);
@@ -1562,6 +1644,34 @@
     text-align: center;
     padding: 12px 0;
   }
+  /* $金额可点提示 —— 虚线下划线, Vercel 克制 */
+  .cost-clickable {
+    cursor: pointer;
+    border-bottom: 1px dotted var(--text-tertiary);
+    transition: color 150ms ease-out, border-color 150ms ease-out;
+  }
+  .cost-clickable:hover { color: var(--text-primary) !important; border-bottom-color: var(--text-primary); }
+  /* 成本明细弹层 —— 每模型一块, 四类 token 各行「量 × 单价 = 小计」 */
+  .cost-model + .cost-model { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .cost-model-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 4px;
+    font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--text-primary);
+  }
+  .cost-line {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 2px 0; font-size: 12px;
+  }
+  .cost-line .cost-l { color: var(--text-tertiary); }
+  .cost-line .cost-r { font-family: var(--font-mono); font-size: 11px; }
+  .cost-line .cost-tok { color: var(--text-secondary); }
+  .cost-line .cost-x { color: var(--text-tertiary); }
+  .cost-line .cost-eq { color: var(--text-primary); margin-left: 5px; }
+  .cost-foot {
+    margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border);
+    font-size: 11px; color: var(--text-tertiary); line-height: 1.55;
+  }
+  .cost-foot .cost-warn { color: var(--text-secondary); }
   .popover-body p {
     margin: 0;
     font-size: 13px;
@@ -1711,9 +1821,15 @@
   }
   .reveal { animation: fadeUp 320ms ease-out both; }
 
+  @media (max-width: 820px) {
+    /* 导航栏挤不下:面包屑+时间戳+头像已经占满,停靠 tab 让位(控件条本身仍在页面顶部可用) */
+    .dock-tabs { display: none; }
+  }
+
   @media (max-width: 900px) {
-    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); row-gap: 20px; }
     .stat:nth-child(2) { border-right: 0; }
+    .stat:nth-child(odd) { padding-left: 0; }
     .row-2 { grid-template-columns: 1fr; }
     .session-row { grid-template-columns: 56px 1fr; row-gap: 8px; }
     .session-row > *:nth-child(3),
@@ -1732,6 +1848,12 @@
     <span class="sep">/</span>
     <span class="here">reports</span>
   </div>
+  <!-- 控件条滚出视野后, 日/周/月 停靠到导航栏(刷新/导出不跟来: 低频, 且右侧已被时间戳+头像占住) -->
+  <div class="dock-tabs" id="dock-tabs" role="tablist" aria-label="报表区间">
+    <button class="dock-tab" data-range="daily"   aria-selected="true">日报</button>
+    <button class="dock-tab" data-range="weekly"  aria-selected="false">周报</button>
+    <button class="dock-tab" data-range="monthly" aria-selected="false">月报</button>
+  </div>
   <div class="topbar-spacer"></div>
   <div class="meta-stamp" id="stamp">refreshed —</div>
   <div class="avatar" id="avatar">·</div>
@@ -1740,7 +1862,6 @@
 <nav class="side-nav" id="side-nav" aria-label="页面导航" style="display:none;">
   <a href="#hero" data-target="hero"><span class="nav-dot"></span><span class="nav-label">概览</span></a>
   <a href="#activity" data-target="activity"><span class="nav-dot"></span><span class="nav-label">时段</span></a>
-  <a href="#trend" data-target="trend"><span class="nav-dot"></span><span class="nav-label">趋势</span></a>
   <a href="#projects" data-target="projects"><span class="nav-dot"></span><span class="nav-label">项目</span></a>
   <a href="#sessions" data-target="sessions"><span class="nav-dot"></span><span class="nav-label">Sessions</span></a>
 </nav>
@@ -1764,6 +1885,14 @@
     const h = Math.floor(m / 60), mm = m % 60;
     return mm === 0 ? `${h}h` : `${h}h ${mm}m`;
   };
+  // 等效 API 成本($) —— 克制显示,给 token 一个"值多少钱"的体感;非订阅实付
+  const fmtUsd = n => {
+    n = n || 0;
+    if (n >= 1000) return "$" + (n / 1000).toFixed(1) + "K";
+    if (n >= 100) return "$" + Math.round(n);
+    if (n >= 1) return "$" + n.toFixed(1);
+    return "$" + n.toFixed(2);
+  };
   const fmtTimeHHMM = iso => {
     if (!iso) return "—";
     const d = new Date(iso);
@@ -1773,6 +1902,13 @@
     const d = new Date(iso + "T12:00:00");
     return d.toLocaleDateString("zh-CN", { weekday: "long" });
   };
+  // MON / TUE … — 里程碑 sub 行统一走英文缩写(mono 更齐, 也不跟中文标签抢戏)
+  const weekdayEN = iso => {
+    const d = new Date(iso + "T12:00:00");
+    if (isNaN(d)) return "";
+    return d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
+  };
+  const dateEN = iso => `${weekdayEN(iso)} ${iso.slice(5)}`;
   const monthDay = iso => {
     const d = new Date(iso + "T12:00:00");
     return d.toLocaleDateString("zh-CN", { month: "long", day: "numeric" });
@@ -1841,6 +1977,23 @@
     }));
   }
 
+  // 今日之前的 7 天,逐时段均值 —— 日报柱状图的「常态」参照线
+  function hourlyBaseline(days) {
+    const past = days.slice(-8, -1).filter(d => (d.hourly_tokens || d.hourly || []).some(v => v > 0));
+    if (!past.length) return { avgValues: null, avgDays: 0, avgDayTotal: 0 };
+    const avg = new Array(24).fill(0);
+    let sum = 0;
+    past.forEach(d => {
+      const h = d.hourly_tokens || d.hourly || [];
+      for (let i = 0; i < 24; i++) { avg[i] += (h[i] || 0); sum += (h[i] || 0); }
+    });
+    return {
+      avgValues: avg.map(v => v / past.length),
+      avgDays: past.length,
+      avgDayTotal: sum / past.length,
+    };
+  }
+
   // ─── Aggregation by range ───────────────────────────
   function aggregateRange(data, range) {
     // returns: {
@@ -1857,12 +2010,15 @@
       const prev = data.days.length >= 2 ? data.days[data.days.length - 2] : null;
       const sessDelta = prev ? today.sessions - prev.sessions : null;
 
-      // active span: first session start → last session end
+      // active span: 最早开工 → 最晚收尾(取真正最晚的 end,不是"按开始时间排最后那个 session"的 end
+      // —— 后者会漏掉先开、晚收的窗口,跟里程碑里的时长对不上账)
       const sortedByStart = [...today.sessions_list]
         .filter(s => s.start)
         .sort((a, b) => a.start.localeCompare(b.start));
       const firstSession = sortedByStart[0];
-      const lastSession = sortedByStart[sortedByStart.length - 1];
+      const lastSession = sortedByStart.length
+        ? sortedByStart.reduce((a, b) => (new Date(b.end || b.start) > new Date(a.end || a.start) ? b : a))
+        : null;
       const spanStart = firstSession ? new Date(firstSession.start) : null;
       const spanEnd = lastSession ? new Date(lastSession.end || lastSession.start) : null;
       const spanMin = spanStart && spanEnd
@@ -1900,35 +2056,29 @@
 
       return {
         range,
-        title_eyebrow: `日报 · ${monthDay(today.date)} · ${weekdayLong(today.date)}`,
+        title_eyebrow: `日报 · ${monthDay(today.date)} · ${weekdayEN(today.date)}`,
         headline,
-        stats: [
-          { label: "Sessions", value: today.sessions,
-            sub: sessDelta !== null ? formatDelta(sessDelta, "较昨日") : "—" },
-          { label: "Prompts", value: fmtInt(today.user_msgs),
-            sub: fmtInt(today.assistant_msgs) + " 次 assistant 回复" },
-          { label: "Output", value: fmtTok(workToks),
-            sub: workDelta !== null ? formatDelta(workDelta, "较昨日", fmtTok) : "output + cache write" },
-          utilStat(data),
-        ],
+        stats: computeMilestones([today], data.days, true),
         activity: {
           kind: "bar",
           values: today.hourly_tokens || today.hourly,
           opts: {
             title: "时段 token 消耗",
-            metaRight: "token 消耗 · 今日 · 灰阶 = 模型",
+            metaRight: "柱 = 今日 · 灰阶 = 模型 · 斜纹 = 近 7 日同时段均值",
             byModel: today.hourly_tokens_by_model || null,
             byModelDateLabel: today.date,
             modelMsgs: today.models || null,
             fmtValue: fmtTok,
-            axisLabels: i => String(i).padStart(2, "0"),
-            peakLabel: (p, m) => `峰值 <strong>${String(p).padStart(2, "0")}:00</strong> · ${fmtTok(m)} tokens`,
-            footText: t => `共 <strong>${fmtTok(t)}</strong> tokens`,
+            cost: today.cost || 0,
+            ...hourlyBaseline(data.days),
           }
         },
         trend_days: data.days.slice(-7),
         trend_title: "近 7 日趋势",
         tokens: today.tokens,
+        costTotal: today.cost || 0,
+        costByModel: today.cost_by_model || {},
+        costModels: today.models || {},
         projects: attachProjectSparklines(today.projects, data.days.slice(-7)),
         sessions_list: today.sessions_list,
         sessions_opts: {
@@ -1947,6 +2097,9 @@
     const projAccum = new Map();
     const allSessions = [];
     let totalSessions = 0, totalUser = 0, totalAssistant = 0, activeDays = 0;
+    let costTotal = 0;
+    const costByModel = {};
+    const costModels = {};
 
     for (const d of subset) {
       totalSessions += d.sessions;
@@ -1954,6 +2107,12 @@
       totalAssistant += d.assistant_msgs;
       if (d.sessions > 0) activeDays++;
       for (const k of Object.keys(tokens)) tokens[k] += d.tokens[k] || 0;
+      costTotal += d.cost || 0;
+      for (const [m, td] of Object.entries(d.cost_by_model || {})) {
+        const a = costByModel[m] || (costByModel[m] = { in: 0, out: 0, cw: 0, cr: 0 });
+        a.in += td.in; a.out += td.out; a.cw += td.cw; a.cr += td.cr;
+      }
+      for (const [m, c] of Object.entries(d.models || {})) costModels[m] = (costModels[m] || 0) + c;
       for (const p of d.projects) {
         const key = p.name || p.path || p.label;
         const cur = projAccum.get(key) || { name: key, label: p.label || key, sessions: 0, tokens: 0, output: 0, cache_creation: 0, msgs: 0, active_min: 0, fallback: !!p.fallback };
@@ -1967,10 +2126,10 @@
       }
       for (const s of d.sessions_list) allSessions.push(s);
     }
-    // 主指标 = work(产出 = output + cache_creation, 甩掉 cache_read)——与浮窗一致
+    // 主轴 = 活跃时长(时间 = 心思落在哪);产出保留为副指标
     const projectsRaw = [...projAccum.values()].sort((a, b) => {
       if (!!a.fallback !== !!b.fallback) return a.fallback ? 1 : -1;  // 真项目在前, 兜底桶沉底
-      return workTokens(b) - workTokens(a);
+      return (b.active_min || 0) - (a.active_min || 0);
     });
     const projects = attachProjectSparklines(projectsRaw, subset);
     allSessions.sort((a, b) => b.tokens - a.tokens);
@@ -2011,15 +2170,7 @@
         ? `周报 · ${monthDay(firstDate)} – ${monthDay(lastDate)}`
         : `月报 · ${monthDay(firstDate)} – ${monthDay(lastDate)}`,
       headline,
-      stats: [
-        { label: "Sessions", value: fmtInt(totalSessions),
-          sub: `${activeDays} / ${n} 个活跃日` },
-        { label: "Prompts", value: fmtInt(totalUser),
-          sub: fmtInt(totalAssistant) + " 次 assistant 回复" },
-        { label: "Output", value: fmtTok(workToks),
-          sub: activeDays > 0 ? fmtTok(workToks / activeDays) + " / 活跃日" : "—" },
-        utilStat(data),
-      ],
+      stats: computeMilestones(subset, data.days, false),
       activity: {
         kind: "heatmap",
         days: subset,  // pass full days for day×hour grid
@@ -2027,11 +2178,15 @@
           title: range === "weekly" ? "时段 token 热力图 · 近 7 天" : "时段 token 热力图 · 近 30 天",
           metaRight: "行 = 日期 · 列 = 24 时段 · 深浅 = token",
           field: "hourly_tokens",
+          cost: costTotal,
         }
       },
       trend_days: subset,
       trend_title: range === "weekly" ? "近 7 日趋势" : "近 30 日趋势",
       tokens,
+      costTotal,
+      costByModel,
+      costModels,
       projects,
       sessions_list: allSessions,
       sessions_opts: {
@@ -2044,14 +2199,93 @@
     };
   }
 
+  // 4 个里程碑(从真实数据算 · 不评判,只如实记)
+  // sub 行 = 英文 mono 事实(时刻 / 星期缩写 / 计数),不写"一路没切走"这类没验证过的旁白。
+  function computeMilestones(periodDays, allDays, isDaily) {
+    const sess = [];
+    for (const d of periodDays) for (const s of (d.sessions_list || [])) sess.push({ ...s, _date: d.date });
+    // 最长专注 = 最长的单段 session(active_min)
+    let longest = null;
+    for (const s of sess) if ((s.active_min || 0) > 0 && (!longest || s.active_min > longest.active_min)) longest = s;
+    // 一天穿梭最多项目 = 单日不同真实项目数峰值
+    let maxProj = 0, maxProjDate = null;
+    for (const d of periodDays) {
+      const names = new Set((d.projects || []).filter(p => !p.fallback).map(p => p.name || p.label));
+      if (names.size > maxProj) { maxProj = names.size; maxProjDate = d.date; }
+    }
+    // 连续开工 = 末尾连续活跃天数(到今天没断)
+    let streak = 0;
+    for (let i = allDays.length - 1; i >= 0; i--) { if (allDays[i].sessions > 0) streak++; else break; }
+    const streakFrom = streak > 0 ? allDays[allDays.length - streak].date : null;
+    const streakStat = {
+      label: "连续开工",
+      value: `${streak} 天`,
+      sub: streakFrom ? `SINCE ${streakFrom.slice(5)}` : "—",
+    };
+    // 只报开始时刻:active_min 已剔掉空闲,若并排写「09:37 → 16:48」读者会拿窗口去减,对不上账
+    const longestSub = longest ? `FROM ${fmtTimeHHMM(longest.start)}` : "—";
+
+    if (isDaily) {
+      // 日报 = 当天内部的事实。「最晚的夜晚」在只有一天时退化成收工时刻(且跟标题的跨度重复),
+      // 换成「投入时长」:跨度里真正在敲的部分。
+      const invest = sess.reduce((a, s) => a + (s.active_min || 0), 0);
+      const starts = sess.map(s => new Date(s.start).getTime()).filter(t => !isNaN(t));
+      const ends = sess.map(s => new Date(s.end || s.start).getTime()).filter(t => !isNaN(t));
+      const spanMin = starts.length ? Math.round((Math.max(...ends) - Math.min(...starts)) / 60000) : 0;
+      const density = spanMin > 0 ? Math.round((invest / spanMin) * 100) : 0;
+      // 切换次数 = 按开始时间排序后相邻 session 换了项目的次数
+      const seq = [...sess].sort((a, b) => new Date(a.start) - new Date(b.start)).map(s => s.cwd_label || "?");
+      let switches = 0;
+      for (let i = 1; i < seq.length; i++) if (seq[i] !== seq[i - 1]) switches++;
+      return [
+        longest
+          ? { label: "最长专注", value: fmtMin(longest.active_min), sub: longestSub }
+          : { label: "最长专注", value: "—", sub: "NO SESSION YET" },
+        invest > 0
+          ? {
+              label: "投入时长",
+              value: fmtMin(invest),
+              // 各 session 活跃时长之和。并行开窗时会超过跨度 —— 那时不报密度,如实说"重叠"
+              sub: density > 100 ? `${sess.length} SESSIONS OVERLAP` : `${density}% OF ${fmtMin(spanMin)} SPAN`,
+            }
+          : { label: "投入时长", value: "—", sub: "NO SESSION YET" },
+        {
+          label: "今日穿梭",
+          value: `${maxProj} 个项目`,
+          sub: switches > 0 ? `${switches} SWITCHES` : (maxProj > 0 ? "NO SWITCH" : "—"),
+        },
+        streakStat,
+      ];
+    }
+
+    // 最晚的夜晚 = 最晚的 end 时刻(凌晨算更晚)—— 只在周/月报有意义
+    const nightScore = iso => { const dt = new Date(iso); if (isNaN(dt)) return -1; const h = dt.getHours() + dt.getMinutes() / 60; return h < 8 ? h + 24 : h; };
+    let latest = null, latestSc = -1;
+    for (const s of sess) { const t = s.end || s.start; if (!t) continue; const sc = nightScore(t); if (sc > latestSc) { latestSc = sc; latest = { t, date: s._date }; } }
+    return [
+      longest
+        ? { label: "最长专注", value: fmtMin(longest.active_min), sub: dateEN(longest._date) }
+        : { label: "最长专注", value: "—", sub: "—" },
+      latest
+        ? { label: "最晚的夜晚", value: fmtTimeHHMM(latest.t), sub: dateEN(latest.date) }
+        : { label: "最晚的夜晚", value: "—", sub: "—" },
+      { label: "一天穿梭最多", value: `${maxProj} 个项目`, sub: maxProjDate ? dateEN(maxProjDate) : "—" },
+      streakStat,
+    ];
+  }
+
   // ─── Render ─────────────────────────────────────────
   // model name → grey-scale fill (Vercel DNA: no color)
-  const MODEL_SHADES = ["#171717", "#4d4d4d", "#8a8a8a", "#b8b8b8", "#d4d4d4", "#ebebeb"];
+  // 相邻两档拉开够远,堆叠柱里第 1/第 2 个模型才分得清;首档用炭灰不用纯黑(纯黑是正文色,图形抢戏)
+  const MODEL_SHADES = ["#3a3a3a", "#a3a3a3", "#6e6e6e", "#c9c9c9", "#888888", "#e2e2e2"];
   function shortModel(m) {
     if (!m) return "?";
-    if (m.startsWith("claude-opus-4-7"))   return "Opus 4.7";
+    if (m.startsWith("claude-fable-5"))    return "Fable 5";
     if (m.startsWith("claude-opus-4-8"))   return "Opus 4.8";
+    if (m.startsWith("claude-opus-4-7"))   return "Opus 4.7";
+    if (m.startsWith("claude-opus-4-6"))   return "Opus 4.6";
     if (m.startsWith("claude-opus"))       return "Opus";
+    if (m.startsWith("claude-sonnet-5"))   return "Sonnet 5";
     if (m.startsWith("claude-sonnet-4-6")) return "Sonnet 4.6";
     if (m.startsWith("claude-sonnet"))     return "Sonnet";
     if (m.startsWith("claude-haiku"))      return "Haiku";
@@ -2061,8 +2295,8 @@
   }
 
   function renderActivityChart(values, opts) {
-    // "Waveform timeline" — narrow vertical lines instead of fat bars.
-    // Same data, more like an audio waveform / ECG strip.
+    // 日报「时段 token 消耗」——左图右析,与周/月报热力图同构。
+    // 柱 = 今日(按模型分段堆叠) · 虚线阶梯 = 近 7 日同时段均值(常态参照)。
     const fmtVal = opts.fmtValue || fmtInt;
     const hourlyByModel = opts.byModel || null;
     const modelTotals = new Map();
@@ -2077,106 +2311,131 @@
       return MODEL_SHADES[Math.min(idx, MODEL_SHADES.length - 1)] || "#d4d4d4";
     };
 
-    const max = Math.max(1, ...values);
-    const peak = values.indexOf(max);
     const n = values.length;
+    const avgValues = (opts.avgValues && opts.avgValues.length === n) ? opts.avgValues : null;
+    const dayMax = Math.max(0, ...values);
+    const peak = values.indexOf(dayMax);
+    const max = Math.max(1, dayMax, ...(avgValues || []));
+    const total = values.reduce((a, b) => a + b, 0);
 
-    // canvas — much shorter than old chart, panoramic feel
-    const W = 720, H = 110;
-    const padX = 12;
-    const padTop = 26;
-    const padBot = 26;
+    // canvas — 比旧波形高一截,柱子给到实处
+    const W = 600, H = 172;
+    const padX = 10, padTop = 30, padBot = 26;
     const plotH = H - padTop - padBot;
     const baseY = H - padBot;
-
-    // each hour is a slot; lines are thin & evenly distributed
     const slotW = (W - padX * 2) / n;
-    const lineW = Math.max(3, Math.min(6, slotW - 4));
+    const barW = Math.max(7, Math.min(16, slotW - 8));
+    const rad = Math.min(2.5, barW / 2);
 
-    let body = "";
+    // 斜纹(素描排线)—— 只给「常态地形」用,实心面会被误读成数据,排线一看就是参照
+    let body = `<defs>
+      <pattern id="ridge-hatch" patternUnits="userSpaceOnUse" width="4" height="4"
+        patternTransform="rotate(45)">
+        <line x1="0" y1="0" x2="0" y2="4" stroke="#d8d8d5" stroke-width="1"/>
+      </pattern>
+    </defs>`;
 
-    // baseline (zero line — runs across the whole strip)
+    // 近 7 日同时段均值 —— 今天的柱子站在它上面,高出/塌陷一眼可读
+    if (avgValues) {
+      let ridge = "";
+      avgValues.forEach((v, i) => {
+        const y = baseY - (v / max) * plotH;
+        const x0 = padX + i * slotW, x1 = x0 + slotW;
+        ridge += `${i === 0 ? "M" : "L"}${x0.toFixed(1)} ${y.toFixed(1)}L${x1.toFixed(1)} ${y.toFixed(1)}`;
+      });
+      body += `<path d="${ridge}L${(W - padX).toFixed(1)} ${baseY}L${padX} ${baseY}Z"
+        fill="url(#ridge-hatch)" stroke="none"/>`;
+      body += `<path d="${ridge}" fill="none" stroke="#e0e0dd" stroke-width="1"
+        vector-effect="non-scaling-stroke"/>`;
+    }
+
+    // 时段分隔(06 / 12 / 18)—— 与右侧「上午/下午/晚上/深夜」占比条对得上
+    [6, 12, 18].forEach(h => {
+      const x = padX + h * slotW;
+      body += `<line x1="${x}" y1="${padTop - 10}" x2="${x}" y2="${baseY}"
+        stroke="var(--border-strong)" stroke-width="1" stroke-dasharray="1 5"/>`;
+    });
+
+    // baseline
     body += `<line x1="${padX}" y1="${baseY}" x2="${W - padX}" y2="${baseY}"
-      stroke="var(--border)" stroke-width="1"/>`;
+      stroke="var(--border-strong)" stroke-width="1"/>`;
 
-    // 24 vertical lines
+    // 24 根柱子:每根一个 <g>,内含分段 + 命中区(hover 只亮自己)
     values.forEach((v, i) => {
+      const x = padX + i * slotW + (slotW - barW) / 2;
       const cx = padX + i * slotW + slotW / 2;
       const isPeak = i === peak && v > 0;
+      const totalH = (v / max) * plotH;
+      const barTopY = v > 0 ? baseY - totalH : baseY;
 
+      let bar = "";
       if (v === 0) {
-        // tiny baseline dot — "this hour had no activity"
-        body += `<circle cx="${cx}" cy="${baseY}" r="1.5"
-          fill="var(--g1)" class="bar-cell" data-idx="${i}"/>`;
-      } else if (hourlyByModel && hourlyByModel[i] && Object.keys(hourlyByModel[i]).length > 0) {
-        const segs = Object.entries(hourlyByModel[i]).sort((a, b) =>
-          orderedModels.indexOf(a[0]) - orderedModels.indexOf(b[0])
-        );
-        let yCursor = baseY;
-        segs.forEach(([m, c]) => {
-          const segH = (c / max) * plotH;
-          if (segH < 0.5) return;
-          body += `<line x1="${cx}" y1="${yCursor}" x2="${cx}" y2="${yCursor - segH}"
-            stroke="${modelShade(m)}" stroke-width="${lineW}"
-            stroke-linecap="butt" class="bar-cell" data-idx="${i}"/>`;
-          yCursor -= segH;
-        });
+        bar += `<circle cx="${cx}" cy="${baseY}" r="1.5" fill="var(--g2)" class="bar-cell"/>`;
       } else {
-        const totalH = (v / max) * plotH;
-        const fill = isPeak ? "var(--g5)" : "var(--g4)";
-        body += `<line x1="${cx}" y1="${baseY}" x2="${cx}" y2="${baseY - totalH}"
-          stroke="${fill}" stroke-width="${lineW}"
-          stroke-linecap="butt" class="bar-cell" data-idx="${i}"/>`;
+        const clipId = `barclip-${i}`;
+        const segs = (hourlyByModel && hourlyByModel[i] && Object.keys(hourlyByModel[i]).length)
+          ? Object.entries(hourlyByModel[i]).sort((a, b) => orderedModels.indexOf(a[0]) - orderedModels.indexOf(b[0]))
+          : null;
+        bar += `<clipPath id="${clipId}"><rect x="${x}" y="${barTopY}" width="${barW}"
+          height="${Math.max(totalH, 1.5)}" rx="${rad}"/></clipPath>`;
+        bar += `<g clip-path="url(#${clipId})">`;
+        if (segs) {
+          let yCursor = baseY;
+          segs.forEach(([m, c], si) => {
+            const segH = (c / max) * plotH;
+            if (segH <= 0) return;
+            bar += `<rect x="${x}" y="${(yCursor - segH).toFixed(2)}" width="${barW}"
+              height="${Math.max(segH, 0.6).toFixed(2)}" fill="${modelShade(m)}" class="bar-cell"/>`;
+            // 分段之间留一道纸色发丝线,相邻灰阶不糊在一起
+            if (si > 0) {
+              bar += `<line x1="${x}" y1="${yCursor.toFixed(2)}" x2="${x + barW}" y2="${yCursor.toFixed(2)}"
+                stroke="var(--surface)" stroke-width="1"/>`;
+            }
+            yCursor -= segH;
+          });
+        } else {
+          bar += `<rect x="${x}" y="${barTopY}" width="${barW}" height="${Math.max(totalH, 1.5)}"
+            fill="${isPeak ? "var(--g5)" : "var(--g4)"}" class="bar-cell"/>`;
+        }
+        bar += `</g>`;
       }
 
-      // peak marker — small dot above + value
-      if (isPeak && v > 0) {
-        const totalH = (v / max) * plotH;
-        const dotY = baseY - totalH - 8;
-        body += `<circle cx="${cx}" cy="${dotY}" r="3"
-          fill="var(--g5)"/>`;
-        body += `<text x="${cx}" y="${dotY - 6}" text-anchor="middle"
+      // 峰值:柱顶点 + 数值
+      if (isPeak) {
+        const dotY = barTopY - 9;
+        bar += `<circle cx="${cx}" cy="${dotY}" r="2.5" fill="var(--text-primary)"/>`;
+        bar += `<text x="${cx}" y="${dotY - 7}" text-anchor="middle"
           font-family="JetBrains Mono" font-size="10" font-weight="500"
           fill="var(--text-primary)">${fmtVal(v)}</text>`;
       }
 
-      // full-column invisible hit area
-      body += `<rect x="${padX + i * slotW}" y="0"
-        width="${slotW}" height="${H}"
-        fill="transparent" class="bar-hit" data-idx="${i}"
+      // 整列命中区(data-top = 柱顶占 H 的比例,气泡好跟柱高)
+      bar += `<rect x="${padX + i * slotW}" y="0" width="${slotW}" height="${H}"
+        fill="transparent" class="bar-hit" data-idx="${i}" data-top="${(barTopY / H).toFixed(4)}"
         style="cursor:pointer"/>`;
+
+      body += `<g class="bar-group">${bar}</g>`;
     });
 
-    // tick marks + labels at 0 / 6 / 12 / 18 (24:00 = end)
-    let ticks = "";
+    // 刻度 00 / 06 / 12 / 18 / 24
     [0, 6, 12, 18, 24].forEach(h => {
-      const x = (h < 24)
-        ? padX + h * slotW + slotW / 2
-        : W - padX;
-      // tick mark below baseline
-      ticks += `<line x1="${x}" y1="${baseY + 1}" x2="${x}" y2="${baseY + 4}"
+      const x = (h < 24) ? padX + h * slotW : W - padX;
+      body += `<line x1="${x}" y1="${baseY + 1}" x2="${x}" y2="${baseY + 4}"
         stroke="var(--text-quaternary)" stroke-width="1"/>`;
       const anchor = h === 0 ? "start" : (h === 24 ? "end" : "middle");
-      ticks += `<text x="${x}" y="${H - 6}" text-anchor="${anchor}"
+      body += `<text x="${x}" y="${H - 8}" text-anchor="${anchor}"
         font-family="JetBrains Mono" font-size="10"
         fill="var(--text-tertiary)">${String(h).padStart(2, "0")}:00</text>`;
     });
 
-    const total = values.reduce((a, b) => a + b, 0);
-
-    // Model breakdown — surfaces each model's token consumption + usage behavior.
-    // Rich layout (share bar + per-model token / share / calls / avg) when call
-    // counts are provided via opts.modelMsgs; otherwise falls back to pill legend.
+    // ─── 模型拆解(灰阶 = 模型,跟柱子分段一一对应)
     let legendHTML = "";
     if (hourlyByModel && orderedModels.length > 0) {
       const modelMsgs = opts.modelMsgs || null;
       const grandTotal = orderedModels.reduce((s, m) => s + (modelTotals.get(m) || 0), 0) || 1;
 
       if (modelMsgs) {
-        const segs = orderedModels.map(m =>
-          `<span style="width:${((modelTotals.get(m) || 0) / grandTotal * 100).toFixed(2)}%;
-            background:${modelShade(m)}" title="${escapeHTML(shortModel(m))}"></span>`
-        ).join("");
+        // 只留逐模型明细行 —— 占比条跟下面的 % 说同一件事,是重复
         const rows = orderedModels.map(m => {
           const tok = modelTotals.get(m) || 0;
           const msgs = modelMsgs[m] || 0;
@@ -2189,10 +2448,7 @@
             <span class="mu-meta">${fmtInt(msgs)} 次 · ${avg}/次</span>
           </div>`;
         }).join("");
-        legendHTML = `<div class="model-usage">
-          <div class="model-usage-bar">${segs}</div>
-          ${rows}
-        </div>`;
+        legendHTML = `<div class="model-usage">${rows}</div>`;
       } else {
         legendHTML = `<div class="bar-model-legend">${orderedModels.map(m => {
           const cnt = modelTotals.get(m);
@@ -2205,6 +2461,82 @@
       }
     }
 
+    // ─── 右侧解析(与热力图侧栏同一套 rhythm-* 语言)
+    const activeHours = values.filter(v => v > 0).length;
+    const buckets = { morning: 0, afternoon: 0, evening: 0, night: 0 };
+    values.forEach((v, h) => {
+      if (h >= 6 && h < 12) buckets.morning += v;
+      else if (h >= 12 && h < 18) buckets.afternoon += v;
+      else if (h >= 18 && h < 24) buckets.evening += v;
+      else buckets.night += v;
+    });
+    const pct = v => total > 0 ? Math.round((v / total) * 100) : 0;
+    const pMorning = pct(buckets.morning), pAfternoon = pct(buckets.afternoon);
+    const pEvening = pct(buckets.evening), pNight = pct(buckets.night);
+    const sorted = [["上午", pMorning], ["下午", pAfternoon], ["晚上", pEvening], ["深夜", pNight]]
+      .sort((a, b) => b[1] - a[1]);
+    const peakShare = total > 0 ? Math.round((dayMax / total) * 100) : 0;
+
+    // 最长连轴 = 最长的连续活跃时段
+    let run = 0, bestRun = 0, bestEnd = -1;
+    values.forEach((v, i) => {
+      if (v > 0) { run++; if (run > bestRun) { bestRun = run; bestEnd = i; } }
+      else run = 0;
+    });
+    const hh = h => String(h).padStart(2, "0") + ":00";
+
+    // 解析压到两句:一句讲时段结构,一句讲节奏 + 跟常态比。API 价折进「今日消耗」的小字里。
+    let narrative;
+    if (total === 0) {
+      narrative = `<p>今天还没有 token 消耗。</p>`;
+    } else {
+      const lines = [];
+      if (sorted[0][1] >= 55 && sorted[1][1] >= 15) lines.push(`<b>${sorted[0][0]}集中</b>（${sorted[0][1]}%），${sorted[1][0]}（${sorted[1][1]}%）打底。`);
+      else if (sorted[0][1] >= 55) lines.push(`<b>${sorted[0][0]}集中型</b>（${sorted[0][1]}%），其余时段基本空着。`);
+      else if (sorted[0][1] >= 40) lines.push(`主<b>${sorted[0][0]}</b>（${sorted[0][1]}%）+ ${sorted[1][0]}（${sorted[1][1]}%）。`);
+      else lines.push(`时段分布均匀（${sorted[0][0]} ${sorted[0][1]}% / ${sorted[1][0]} ${sorted[1][1]}%）。`);
+
+      const parts = [];
+      if (bestRun > 0) parts.push(`最长连轴 <b>${bestRun} 小时</b>（${hh(bestEnd - bestRun + 1)} → ${hh(bestEnd + 1)}）`);
+      if (opts.avgDayTotal > 0) {
+        const ratio = total / opts.avgDayTotal;
+        const cmp = ratio >= 1.15 ? "比平常猛" : (ratio <= 0.85 ? "还没到平常的量" : "与常态持平");
+        parts.push(`总量是近 ${opts.avgDays} 日日均的 <b>${ratio.toFixed(1)}×</b>，${cmp}`);
+      }
+      if (parts.length) lines.push(parts.join("；") + "。");
+      narrative = lines.map(s => `<p>${s}</p>`).join("");
+    }
+
+    const asideHTML = `
+      <div class="rhythm-row">
+        <div class="rhythm-stat">
+          <div class="rhythm-label">今日消耗</div>
+          <div class="rhythm-value">${fmtTok(total)}</div>
+          ${opts.cost ? `<div class="rhythm-sub">API 价 <span class="cost-clickable">≈ ${fmtUsd(opts.cost)}</span></div>` : ""}
+        </div>
+        <div class="rhythm-stat">
+          <div class="rhythm-label">活跃时段</div>
+          <div class="rhythm-value">${activeHours}<span class="rhythm-unit"> / 24 h</span></div>
+          ${dayMax > 0 ? `<div class="rhythm-sub">峰值 ${hh(peak)} · 占 ${peakShare}%</div>` : ""}
+        </div>
+      </div>
+      <div class="rhythm-insight">
+        <div class="rhythm-bar">
+          <span class="rhythm-bar-seg" style="width:${pMorning}%" title="上午 ${pMorning}%"></span>
+          <span class="rhythm-bar-seg rb-afternoon" style="width:${pAfternoon}%" title="下午 ${pAfternoon}%"></span>
+          <span class="rhythm-bar-seg rb-evening" style="width:${pEvening}%" title="晚上 ${pEvening}%"></span>
+          <span class="rhythm-bar-seg rb-night" style="width:${pNight}%" title="深夜 ${pNight}%"></span>
+        </div>
+        <div class="rhythm-bar-legend">
+          <span>上午 <b>${pMorning}%</b></span>
+          <span>下午 <b>${pAfternoon}%</b></span>
+          <span>晚上 <b>${pEvening}%</b></span>
+          <span>深夜 <b>${pNight}%</b></span>
+        </div>
+      </div>
+      <div class="rhythm-narrative">${narrative}</div>
+    `;
+
     const byModelJSON = hourlyByModel
       ? `data-by-model='${escapeAttr(JSON.stringify(hourlyByModel))}'`
       : "";
@@ -2216,14 +2548,15 @@
           <h2>${opts.title}</h2>
           <span class="meta">${opts.metaRight}</span>
         </div>
-        <div class="chart-waveform">
-          <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
-            aria-label="${opts.title}">${body}${ticks}</svg>
-        </div>
-        ${legendHTML}
-        <div class="chart-foot">
-          <span>${opts.peakLabel(peak, max)}</span>
-          <span>${opts.footText(total)}</span>
+        <div class="chart-row">
+          <div class="chart-main">
+            <div class="chart-waveform">
+              <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet"
+                aria-label="${opts.title}">${body}</svg>
+            </div>
+            ${legendHTML}
+          </div>
+          <div class="chart-aside">${asideHTML}</div>
         </div>
       </div>
     `;
@@ -2253,7 +2586,7 @@
     const cellH = n > 14 ? 10 : 14;
     const cellW = 14;
     const gap = 2;
-    const padLeft = 38;
+    const padLeft = n <= 7 ? 60 : 38;  // 周报行标签带星期缩写(MON 07-07),留够宽
     const padTop = 18;
     const padBottom = 14;
     const padRight = 4;
@@ -2290,12 +2623,10 @@
 
     // day axis labels (left) — show every-other-row for monthly
     let dAxis = "";
-    const wkMap = { Mon:"一", Tue:"二", Wed:"三", Thu:"四", Fri:"五", Sat:"六", Sun:"日" };
     days.forEach((d, di) => {
       if (n > 14 && di % 2 === 1) return;  // skip every other for monthly
       const y = padTop + di * (cellH + gap) + cellH / 2 + 3;
-      const wk = wkMap[d.weekday] || d.weekday[0];
-      const label = n <= 7 ? `${wk} ${d.date.slice(5)}` : d.date.slice(5);
+      const label = n <= 7 ? `${(d.weekday || "").toUpperCase()} ${d.date.slice(5)}` : d.date.slice(5);
       dAxis += `<text x="${padLeft - 6}" y="${y}" text-anchor="end"
         font-family="JetBrains Mono" font-size="9" fill="var(--text-tertiary)">${label}</text>`;
     });
@@ -2489,6 +2820,9 @@
         ` : ""}
         <div class="rhythm-narrative rhythm-narrative-weekly">${narrativeHTML}</div>
       `;
+    }
+    if (opts.cost) {
+      statsHTML += `<div class="rhythm-peak-inline"><span class="rhythm-label">API 价</span><span class="rhythm-value-mono cost-clickable">≈ ${fmtUsd(opts.cost)}</span><span class="rhythm-sub">等效 API 成本</span></div>`;
     }
 
     return `
@@ -2716,8 +3050,75 @@
     return `Output ${fmtTok(output)} · Cache write ${fmtTok(cacheW)} · Input ${fmtTok(input)}。`;
   }
 
+  // 各项目时间占比 · % 在条外(依次变小)+ 项目名小字在条内;显示更多项目,长尾归"其他"
+  const PPCT_SIZE = [22, 18, 16, 15, 14, 13, 12];
+  const PPCT_OP   = [1, 0.82, 0.7, 0.6, 0.52, 0.46, 0.42];
+  const PSUM_SHADES = ["#ededed", "#d4d4d4", "#bcbcbc", "#a2a2a2", "#8a8a8a", "#767676", "#646464"];
+  const PSUM_REST = "#565656";
+  function renderProjectSummaryBar(projects) {
+    const real = projects.filter(p => !p.fallback);
+    const src = real.length ? real : projects;
+    const withWork = src.map(p => ({ p, w: (p.active_min || 0) })).filter(x => x.w > 0);
+    if (withWork.length < 2) return "";
+    const total = withWork.reduce((a, x) => a + x.w, 0);
+    const TOPN = 7;
+    let items;
+    if (withWork.length <= TOPN + 1) {
+      items = withWork.map((x, i) => ({ label: x.p.label, share: x.w / total, raw: x.w, i }));
+    } else {
+      items = withWork.slice(0, TOPN).map((x, i) => ({ label: x.p.label, share: x.w / total, raw: x.w, i }));
+      const restW = withWork.slice(TOPN).reduce((a, x) => a + x.w, 0);
+      items.push({ label: `其他 ${withWork.length - TOPN} 项`, share: restW / total, raw: restW, i: TOPN, rest: true });
+    }
+    const shadeOf = it => it.rest ? PSUM_REST : (PSUM_SHADES[it.i] || PSUM_REST);
+    const pctRow = items.map(it => {
+      const size = it.rest ? 12 : (PPCT_SIZE[it.i] || 12);
+      const op = it.rest ? 0.4 : (PPCT_OP[it.i] || 0.4);
+      return `<div class="ppct" style="width:${(it.share * 100).toFixed(2)}%"><b style="font-size:${size}px; color:rgba(255,255,255,${op})">${Math.round(it.share * 100)}%</b></div>`;
+    }).join("");
+    const bar = items.map(it => {
+      const darkText = !it.rest && it.i < 4;   // 亮底用深字, 暗底(靠后/其他)用浅字
+      const nameCol = darkText ? "#171717" : "rgba(255,255,255,0.92)";
+      const name = it.share > 0.06 ? `<span class="pseg-name" style="color:${nameCol}">${escapeHTML(it.label)}</span>` : "";
+      const tip = `${it.label} · ${Math.round(it.share * 100)}% · ${fmtMin(it.raw)}`;
+      return `<div class="pseg" style="width:${(it.share * 100).toFixed(2)}%; background:${shadeOf(it)};" data-tip="${escapeAttr(tip)}">${name}</div>`;
+    }).join("");
+    return `<div class="psum"><div class="psum-cap">各项目时间占比</div><div class="ppct-row">${pctRow}</div><div class="pbar">${bar}</div></div>`;
+  }
+
+  // 占比条 tooltip · 锚定在段上方(不随鼠标移动)——挂 body,不受条的 overflow 裁剪
+  (function () {
+    let tip = null, cur = null;
+    document.addEventListener("pointerover", e => {
+      const seg = e.target.closest && e.target.closest(".pseg[data-tip]");
+      if (!seg || seg === cur) return;
+      cur = seg;
+      if (!tip) { tip = document.createElement("div"); tip.id = "psum-tip"; document.body.appendChild(tip); }
+      tip.textContent = seg.getAttribute("data-tip");
+      tip.style.opacity = "1";
+      const r = seg.getBoundingClientRect();
+      let x = r.left + r.width / 2 - tip.offsetWidth / 2;
+      x = Math.max(8, Math.min(x, window.innerWidth - tip.offsetWidth - 8));
+      let y = r.top - tip.offsetHeight - 8;
+      if (y < 8) y = r.bottom + 8;
+      tip.style.left = x + "px"; tip.style.top = y + "px";
+    });
+    document.addEventListener("pointerout", e => {
+      const seg = e.target.closest && e.target.closest(".pseg[data-tip]");
+      if (!seg || cur !== seg) return;
+      const to = e.relatedTarget;
+      if (to && to.closest && to.closest(".pseg[data-tip]") === seg) return;
+      cur = null; if (tip) tip.style.opacity = "0";
+    });
+  })();
+
   function renderProjects(projects, range) {
     if (!projects.length) return "";
+    // 主轴 = 时间(活跃时长):真项目在前、兜底沉底,按活跃时长降序(日报也一致)
+    projects = [...projects].sort((a, b) => {
+      if (!!a.fallback !== !!b.fallback) return a.fallback ? 1 : -1;
+      return (b.active_min || 0) - (a.active_min || 0);
+    });
     const isDaily = range === "daily";
     const showStamps = !isDaily;
 
@@ -2737,8 +3138,8 @@
             <div class="folder-thumb-text">${escapeHTML(latestTitle || "—")}</div>
           </div>
           <div class="folder-name">${escapeHTML(p.label)}</div>
-          <div class="folder-duration">${fmtTok(workTokens(p))} <span class="folder-unit">产出</span></div>
-          <div class="folder-meta">${p.sessions} 个 session · 活跃 ${fmtMin(p.active_min || 0)} · ${fmtTok(p.tokens)} tok 总量</div>
+          <div class="folder-duration">${fmtMin(p.active_min || 0)} <span class="folder-unit">活跃</span></div>
+          <div class="folder-meta">${p.sessions} 个 session · ${fmtTok(workTokens(p))} 产出 · ${fmtTok(p.tokens)} tok 总量</div>
           <div class="folder-corner"></div>
           ${stampHTML}
           <div class="folder-details" data-loaded="0"></div>
@@ -2774,18 +3175,27 @@
       }
     }
 
-    // Top-3 share insight (only for weekly/monthly where top-3 has meaning)
-    let metaInsight = "按产出排序";
+    // Top-3 share insight (按活跃时长)
+    let metaInsight = "按时长排序";
     const realProjects = projects.filter(p => !p.fallback);
-    const totalTok = realProjects.reduce((a, p) => a + workTokens(p), 0);
+    const totalActive = realProjects.reduce((a, p) => a + (p.active_min || 0), 0);
     if (!isDaily && realProjects.length >= 4) {
-      const top3Tok = realProjects.slice(0, 3).reduce((a, p) => a + workTokens(p), 0);
-      const share = totalTok > 0 ? Math.round((top3Tok / totalTok) * 100) : 0;
+      const top3Active = realProjects.slice(0, 3).reduce((a, p) => a + (p.active_min || 0), 0);
+      const share = totalActive > 0 ? Math.round((top3Active / totalActive) * 100) : 0;
       metaInsight += ` · <strong style="color:var(--text-primary)">Top 3 占 ${share}%</strong>`;
     }
 
-    // Project-distribution narrative (2-3 lines, depending on focus/dispersion)
-    const projectInsight = buildProjectsNarrative(projects, range);
+    // 产出占比条 + 分布叙述,合进同一个 INSIGHT 深底面板(占比条在上、点评在下)
+    const summaryBar = renderProjectSummaryBar(projects);
+    const narrative = buildProjectsNarrative(projects, range);
+    let insightBlock = "";
+    if (narrative) {
+      insightBlock = summaryBar
+        ? narrative.replace('<div class="projects-insight">', `<div class="projects-insight">${summaryBar}`)
+        : narrative;
+    } else if (summaryBar) {
+      insightBlock = `<div class="projects-insight">${summaryBar}</div>`;
+    }
 
     return `
       <div class="card section reveal projects-section">
@@ -2793,7 +3203,7 @@
           <h2>Projects today</h2>
           <span class="meta">${metaInsight}</span>
         </div>
-        ${projectInsight}
+        ${insightBlock}
         <div class="proj-list">${rowsHTML}</div>
       </div>
     `;
@@ -2802,12 +3212,12 @@
   function buildProjectsNarrative(projects, range) {
     const real = projects.filter(p => !p.fallback);
     const buckets = projects.filter(p => p.fallback);
-    const totalTok = projects.reduce((a, p) => a + workTokens(p), 0);
-    const realTok = real.reduce((a, p) => a + workTokens(p), 0);
+    const totalTok = projects.reduce((a, p) => a + (p.active_min || 0), 0);
+    const realTok = real.reduce((a, p) => a + (p.active_min || 0), 0);
     if (!real.length || realTok <= 0) return "";
     const periodWord = range === "daily" ? "今天" : (range === "weekly" ? "本周" : "本月");
     const top1 = real[0];
-    const top1Work = workTokens(top1);
+    const top1Work = top1.active_min || 0;
     const top1Share = top1Work / realTok;
     const top1Pct = Math.round(top1Share * 100);
 
@@ -2815,18 +3225,18 @@
 
     // sentence 1: dominance / dispersion of top-1 real project (按产出 — 主指标, 兜底桶不参与)
     if (top1Share >= 0.55) {
-      sentences.push(`${periodWord}主线明确——<b>${escapeHTML(top1.label)}</b> 一项就占了 <b>${top1Pct}%</b> 产出（${fmtTok(top1Work)}），其余项目都是配角。`);
+      sentences.push(`${periodWord}主线明确——<b>${escapeHTML(top1.label)}</b> 一项就占了 <b>${top1Pct}%</b> 时间（${fmtMin(top1Work)}），其余项目都是配角。`);
     } else if (top1Share >= 0.30) {
       const top2 = real[1];
-      const top2Work = top2 ? workTokens(top2) : 0;
+      const top2Work = top2 ? (top2.active_min || 0) : 0;
       if (top2 && top2Work > 0) {
         const gapPct = Math.round((1 - top2Work / top1Work) * 100);
-        sentences.push(`主线 <b>${escapeHTML(top1.label)}</b>（${fmtTok(top1Work)}, ${top1Pct}%），跟次线 <b>${escapeHTML(top2.label)}</b>（${fmtTok(top2Work)}）拉开 ${gapPct}% 差距。`);
+        sentences.push(`主线 <b>${escapeHTML(top1.label)}</b>（${fmtMin(top1Work)}, ${top1Pct}%），跟次线 <b>${escapeHTML(top2.label)}</b>（${fmtMin(top2Work)}）拉开 ${gapPct}% 差距。`);
       } else {
         sentences.push(`${periodWord}主线 <b>${escapeHTML(top1.label)}</b>（${top1Pct}%）。`);
       }
     } else {
-      sentences.push(`${periodWord}产出分散在 <b>${real.length}</b> 个项目，Top 1（${escapeHTML(top1.label)}）仅占 <b>${top1Pct}%</b>，没有强势主线。`);
+      sentences.push(`${periodWord}时间分散在 <b>${real.length}</b> 个项目，Top 1（${escapeHTML(top1.label)}）仅占 <b>${top1Pct}%</b>，没有强势主线。`);
     }
 
     // sentence 2: 活跃时长 head/tail split (≥ 3 real projects) — 跟 token 用量互补的一条
@@ -2843,11 +3253,11 @@
 
     // sentence 3: 诚实披露未归类占比 (兜底桶不进主线, 但要说清楚跑哪了)
     if (buckets.length && totalTok > 0) {
-      const bucketTok = buckets.reduce((a, p) => a + workTokens(p), 0);
+      const bucketTok = buckets.reduce((a, p) => a + (p.active_min || 0), 0);
       const bucketPct = Math.round((bucketTok / totalTok) * 100);
       if (bucketPct >= 5) {
         const names = buckets.slice(0, 3).map(b => escapeHTML(b.label)).join(" / ");
-        sentences.push(`<span class="insight-muted">另有 <b>${bucketPct}%</b> 产出落在未归类（${names}${buckets.length > 3 ? " 等" : ""}），不计入主线。</span>`);
+        sentences.push(`<span class="insight-muted">另有 <b>${bucketPct}%</b> 时间落在未归类（${names}${buckets.length > 3 ? " 等" : ""}），不计入主线。</span>`);
       }
     }
 
@@ -2991,8 +3401,8 @@
         <h1 class="hero-headline">${agg.headline}</h1>
         <div class="stat-grid">
           ${agg.stats.map(s => `
-            <div class="stat" data-stat-key="${escapeAttr(s.label)}">
-              <div class="stat-label">${escapeHTML(s.label)} <span class="stat-info">?</span></div>
+            <div class="stat">
+              <div class="stat-label">${escapeHTML(s.label)}</div>
               <div class="stat-value">${s.value}</div>
               <div class="stat-sub">${escapeHTML(s.sub)}</div>
             </div>
@@ -3246,9 +3656,50 @@
 
   let DATA = null;
   let RANGE = "daily";
+  let _costCtx = null;   // 当前区间的成本明细上下文, 喂 $金额点击弹层
+
+  // ─── 区间切换 ────────────────────────────────────────
+  // 页面控件条:切换 = 换了一份报表, 回到顶部从头看。
+  // 导航栏停靠版:人正在页面深处比对数据, 换区间是就地换视角 —— 停在原处。
+  function setRange(next, opts) {
+    if (!next || next === RANGE) return;
+    const y = window.scrollY;
+    RANGE = next;
+    rerender();
+    if (opts && opts.keepScroll) {
+      const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      window.scrollTo({ top: Math.min(y, maxY) });   // 新区间页更短时夹住, 免得弹到底
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
+  function syncDockTabs() {
+    document.querySelectorAll("#dock-tabs .dock-tab").forEach(t => {
+      t.setAttribute("aria-selected", t.dataset.range === RANGE ? "true" : "false");
+    });
+  }
+
+  // 停靠开关:观察控件条本身,它整个滑到导航栏底下(rootMargin 抵掉 56px 栏高)就停靠。
+  // 用 IntersectionObserver 而不是 scroll 事件 —— 只切一个 class, 过渡全走 opacity/transform, 不掉帧。
+  let _dockObs = null;
+  function setupDockObserver() {
+    const controls = document.querySelector(".controls");
+    if (!controls) return;
+    if (_dockObs) _dockObs.disconnect();
+    _dockObs = new IntersectionObserver(([entry]) => {
+      document.body.classList.toggle("is-docked", !entry.isIntersecting);
+    }, { rootMargin: "-56px 0px 0px 0px", threshold: 0 });
+    _dockObs.observe(controls);
+  }
+
+  document.querySelectorAll("#dock-tabs .dock-tab").forEach(t => {
+    t.addEventListener("click", () => setRange(t.dataset.range, { keepScroll: true }));
+  });
 
   function rerender() {
     const agg = aggregateRange(DATA, RANGE);
+    _costCtx = { byModel: agg.costByModel || {}, total: agg.costTotal || 0, models: agg.costModels || {} };
 
     const projectsHTML = renderProjects(agg.projects, RANGE)
       .replace("<h2>Projects today</h2>", `<h2>${escapeHTML(agg.projects_title)}</h2>`);
@@ -3258,13 +3709,9 @@
       : renderActivityChart(agg.activity.values, agg.activity.opts);
 
     const html = [
-      `<section id="hero">${renderHeadline(agg)}</section>`,
       renderControls(RANGE),
+      `<section id="hero">${renderHeadline(agg)}</section>`,
       `<section id="activity">${activityHTML}</section>`,
-      `<section id="trend" class="section row-2 reveal">
-        ${renderTrend(agg.trend_days, agg.trend_title)}
-        ${renderTokenMix(agg.tokens, buildTrendInsight(agg.trend_days))}
-      </section>`,
       `<section id="projects">${projectsHTML}</section>`,
       `<section id="sessions">${renderSessions(agg.sessions_list, agg.sessions_opts)}</section>`,
       `<div class="footnote">
@@ -3276,14 +3723,10 @@
     document.getElementById("app").innerHTML = html;
 
     document.querySelectorAll(".tab").forEach(t => {
-      t.addEventListener("click", () => {
-        const next = t.dataset.range;
-        if (!next || next === RANGE) return;
-        RANGE = next;
-        rerender();
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      });
+      t.addEventListener("click", () => setRange(t.dataset.range, { keepScroll: false }));
     });
+    syncDockTabs();
+    setupDockObserver();
 
     setupSideNav();
     setupBarClicks();
@@ -3291,6 +3734,7 @@
     setupSparklineClicks();
     setupStatClicks();
     setupProjectClicks();
+    setupCostClicks();
     hidePopover();
   }
 
@@ -3307,19 +3751,24 @@
   function _popoverEsc(e) {
     if (e.key === "Escape") hidePopover();
   }
-  function showPopover(anchorEl, html) {
+  function showPopover(anchorEl, html, opts) {
+    opts = opts || {};
     hidePopover();
     const div = document.createElement("div");
     div.className = "data-popover reveal";
     div.innerHTML = `<button class="popover-close" aria-label="关闭">×</button>${html}`;
     document.body.appendChild(div);
-    const r = anchorEl.getBoundingClientRect();
+    const r = opts.rect || anchorEl.getBoundingClientRect();
     const pw = div.offsetWidth, ph = div.offsetHeight;
     let left = r.left + r.width / 2 - pw / 2 + window.scrollX;
-    let top = r.bottom + 10 + window.scrollY;
-    // flip up if would go off bottom
-    if (r.bottom + ph + 20 > window.innerHeight) {
+    let top;
+    if (opts.above) {
+      // 浮在锚点上方(柱顶),顶部放不下再翻到下方
       top = r.top + window.scrollY - ph - 10;
+      if (r.top - ph - 20 < 0) top = r.bottom + window.scrollY + 10;
+    } else {
+      top = r.bottom + 10 + window.scrollY;
+      if (r.bottom + ph + 20 > window.innerHeight) top = r.top + window.scrollY - ph - 10;
     }
     left = Math.max(12, Math.min(left, window.innerWidth - pw - 12));
     div.style.left = `${left}px`;
@@ -3388,6 +3837,64 @@
     `;
   }
 
+  // 点击 $金额 → 等效 API 成本明细. 单价读 DATA.pricing(单一源=models.py),
+  // 按模型分块「四类 token 各行: 量 × 单价/M = 小计」; 用了却没登记价的模型会提示.
+  function buildCostPopover(ctx) {
+    const pricing = (DATA && DATA.pricing) || {};
+    const byModel = ctx.byModel || {};
+    const rangeLabel = RANGE === "daily" ? "今日" : (RANGE === "weekly" ? "近 7 天" : "近 30 天");
+
+    const rows = Object.entries(byModel).map(([m, td]) => {
+      const pr = pricing[m] || [0, 0, 0, 0];
+      const cIn = td.in * pr[0] / 1e6, cOut = td.out * pr[1] / 1e6,
+            cCw = td.cw * pr[2] / 1e6, cCr = td.cr * pr[3] / 1e6;
+      return { m, td, pr, sub: cIn + cOut + cCw + cCr, cIn, cOut, cCw, cCr };
+    }).sort((a, b) => b.sub - a.sub);
+
+    const line = (label, toks, price, cost) => `
+      <div class="cost-line">
+        <span class="cost-l">${label}</span>
+        <span class="cost-r"><span class="cost-tok">${fmtTok(toks)}</span> <span class="cost-x">× $${price}/M</span> <span class="cost-eq">${fmtUsd(cost)}</span></span>
+      </div>`;
+
+    const blocks = rows.length ? rows.map(r => `
+      <div class="cost-model">
+        <div class="cost-model-head"><span>${escapeHTML(shortModel(r.m))}</span><span>${fmtUsd(r.sub)}</span></div>
+        ${line("输入", r.td.in, r.pr[0], r.cIn)}
+        ${line("输出", r.td.out, r.pr[1], r.cOut)}
+        ${line("缓存写", r.td.cw, r.pr[2], r.cCw)}
+        ${line("缓存读", r.td.cr, r.pr[3], r.cCr)}
+      </div>`).join("") : `<div class="popover-empty">这段时间没有计费用量</div>`;
+
+    // 用了但没登记单价的真实 claude 模型(新模型 → 提示补价; synthetic 占位 / GLM 第三方不算)
+    const usedBases = [...new Set(Object.keys(ctx.models || {}).map(x => x.split("[")[0]))];
+    const uncounted = usedBases.filter(b => b.startsWith("claude-") && !pricing[b]);
+    const hasGlm = usedBases.some(b => b.startsWith("glm-"));
+
+    let foot = `按 API 价目表折算(单价源自 models.py)· 非订阅实付`;
+    if (hasGlm) foot += `<br>GLM 等第三方模型不计入`;
+    if (uncounted.length) foot += `<br><span class="cost-warn">⚠ ${uncounted.map(b => escapeHTML(shortModel(b))).join("、")} 未登记单价, 未计入 —— 在 models.py 补价</span>`;
+
+    return `
+      <div class="popover-head">
+        <span class="popover-title">等效 API 成本 · ${rangeLabel}</span>
+        <span class="popover-sub">合计 ≈ ${fmtUsd(ctx.total || 0)}</span>
+      </div>
+      ${blocks}
+      <div class="cost-foot">${foot}</div>
+    `;
+  }
+
+  function setupCostClicks() {
+    document.querySelectorAll(".cost-clickable").forEach(el => {
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!_costCtx) return;
+        showPopover(el, buildCostPopover(_costCtx));
+      });
+    });
+  }
+
   function setupBarClicks() {
     const chart = document.querySelector('[data-chart="hourly-bar"]');
     if (!chart) return;
@@ -3400,7 +3907,11 @@
         e.stopPropagation();
         const i = parseInt(hit.dataset.idx, 10);
         const html = buildHourPopover(dateLabel, i, byModel?.[i] || {});
-        showPopover(hit, html);
+        // 锚定柱顶:hit 是全高列,按 data-top 折算柱顶 y,气泡跟柱高浮上方
+        const hr = hit.getBoundingClientRect();
+        const topFrac = parseFloat(hit.dataset.top || "1");
+        const barTop = hr.top + hr.height * topFrac;
+        showPopover(hit, html, { rect: { left: hr.left, right: hr.right, width: hr.width, top: barTop, bottom: barTop, height: 0 }, above: true });
       });
     });
   }

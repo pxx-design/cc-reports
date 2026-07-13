@@ -41,6 +41,7 @@ DAYS = 30
 sys.path.insert(0, os.path.dirname(ROOT))  # monorepo fallback: cursor1/ 共享内核
 sys.path.insert(0, ROOT)                   # 优先用本仓 vendored 的 cc_usage_core(standalone)
 from cc_usage_core import scan
+from cc_usage_core.models import price_of, pricing_dict
 
 # System local timezone — works wherever the user runs this
 TZ = datetime.now().astimezone().tzinfo
@@ -318,6 +319,9 @@ def _empty_slice():
         "assistant_msgs": 0,
         "tool_uses": 0,
         "tokens": {"input": 0, "output": 0, "cache_read": 0, "cache_creation": 0, "total": 0},
+        "cost": 0.0,               # 等效 API 成本($, 按模型单价累加; GLM/未知不计)
+        # 按模型分桶的四类 token 量 —— 喂点击弹层的成本明细; 单价前端用 pricing 查(单一源)
+        "cost_by_model": defaultdict(lambda: {"in": 0, "out": 0, "cw": 0, "cr": 0}),
         "models": defaultdict(int),
         "first_ts": None,
         "last_ts": None,
@@ -509,6 +513,13 @@ def build_data(with_utilization=False):
             sl["hourly_tokens"][local.hour] += msg_tok
             if model:
                 sl["hourly_tokens_by_model"][local.hour][model] += msg_tok
+            # 等效 API 成本($): 单价 (input, output, cache_write, cache_read)/1M; GLM/未知 price=None 不计
+            base = model.split("[", 1)[0] if model else None
+            pr = price_of(base) if base else None
+            if pr:
+                sl["cost"] += (u_in * pr[0] + u_out * pr[1] + u_cw * pr[2] + u_cr * pr[3]) / 1_000_000
+                cbm = sl["cost_by_model"][base]
+                cbm["in"] += u_in; cbm["out"] += u_out; cbm["cw"] += u_cw; cbm["cr"] += u_cr
             for c in (msg.get("content") or []):
                 if isinstance(c, dict) and c.get("type") == "tool_use":
                     sl["tool_uses"] += 1
@@ -538,6 +549,8 @@ def build_data(with_utilization=False):
         hourly_tokens = [0] * 24
         hourly_tokens_by_model = [defaultdict(int) for _ in range(24)]
         tokens = {"input": 0, "output": 0, "cache_read": 0, "cache_creation": 0, "total": 0}
+        cost = 0.0
+        cost_by_model = defaultdict(lambda: {"in": 0, "out": 0, "cw": 0, "cr": 0})
         models = defaultdict(int)
         projects = defaultdict(lambda: {"sessions": 0, "tokens": 0, "output": 0,
                                         "cache_creation": 0, "msgs": 0, "active_min": 0})
@@ -550,6 +563,11 @@ def build_data(with_utilization=False):
             tool_uses_total += sl["tool_uses"]
             for k in tokens:
                 tokens[k] += sl["tokens"].get(k, 0)
+            cost += sl.get("cost", 0.0)
+            for b, td in sl["cost_by_model"].items():
+                agg = cost_by_model[b]
+                for k in ("in", "out", "cw", "cr"):
+                    agg[k] += td[k]
             for m, c in sl["models"].items():
                 models[m] += c
             for hi in range(24):
@@ -609,6 +627,8 @@ def build_data(with_utilization=False):
             "assistant_msgs": assistant_total,
             "tool_uses": tool_uses_total,
             "tokens": tokens,
+            "cost": round(cost, 4),
+            "cost_by_model": {b: dict(v) for b, v in cost_by_model.items()},
             "models": dict(models),
             "projects": proj_list,
             "hourly": hourly,
@@ -623,6 +643,9 @@ def build_data(with_utilization=False):
         "tz": str(TZ),
         "today": today.isoformat(),
         "user": _current_user(CFG),  # 顶栏显示名:config→git→系统全名→登录名 回退
+        # 单价表(单一源=models.py): {model_id: [in, out, cache_write, cache_read]}/1M
+        # 前端成本明细直接读它算钱 —— 改价/加模型只改 models.py 一处, 网页自动跟
+        "pricing": pricing_dict(),
         "days": days_out,
         "utilization": compute_utilization() if with_utilization else None,
     }
