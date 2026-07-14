@@ -1053,11 +1053,13 @@ def cmd_serve(args):
         print(f"[error] port {port} is in use: {e}", file=sys.stderr)
         sys.exit(1)
     url = f"http://localhost:{port}/"
-    print(f"cc-reports · {url}")
-    print(f"  config:   {'loaded ' + CONFIG_PATH if os.path.exists(CONFIG_PATH) else 'none (using defaults)'}")
-    print(f"  tz:       {TZ}")
-    print(f"  data:     {url}api/data (rebuilt on every request)")
-    print("  Ctrl-C to stop")
+    # flush=True 必须留着:stdout 重定向到文件/管道时是块缓冲的,程序化启动 serve 的调用方
+    # (skill / 浮窗的「打开完整报告」/ 任何脚本)会一直读不到这行 URL —— 缓冲区不满就一直吞着。
+    print(f"cc-reports · {url}", flush=True)
+    print(f"  config:   {'loaded ' + CONFIG_PATH if os.path.exists(CONFIG_PATH) else 'none (using defaults)'}", flush=True)
+    print(f"  tz:       {TZ}", flush=True)
+    print(f"  data:     {url}api/data (rebuilt on every request)", flush=True)
+    print("  Ctrl-C to stop", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
