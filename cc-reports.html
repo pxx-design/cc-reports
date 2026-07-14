@@ -694,123 +694,7 @@
     .heatmap-stats { border-left: 0; padding-left: 0; border-top: 1px solid var(--border); padding-top: 18px; }
   }
 
-  /* ─── Sparkline pair ──────────────────────────────── */
-  .spark {
-    padding: 22px 24px;
-  }
-  .spark-row {
-    display: flex; align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: 6px;
-  }
-  .spark-name {
-    font-size: 13px; font-weight: 500;
-    letter-spacing: -0.1px;
-  }
-  .spark-val {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    color: var(--text-primary);
-  }
-  .spark-container {
-    position: relative;
-    width: 100%;
-    height: 56px;
-    margin-bottom: 6px;
-  }
-  .spark-container svg {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
-  .spark-dots {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
-  .spark-dot {
-    position: absolute;
-    width: 4px;
-    height: 4px;
-    background: var(--g3);
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    transition: transform 150ms ease-out, background 150ms ease-out;
-  }
-  .spark-dot.is-last {
-    width: 6px;
-    height: 6px;
-    background: var(--g5);
-  }
-  .spark-dot.is-clickable {
-    pointer-events: auto;
-    cursor: pointer;
-  }
-  .spark-dot.is-clickable:hover {
-    transform: translate(-50%, -50%) scale(1.6);
-    background: var(--g5);
-  }
-  .spark + .spark { border-top: 1px solid var(--border); }
-  .spark-axis {
-    display: flex; justify-content: space-between;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--text-quaternary);
-  }
 
-  /* ─── Token mix ───────────────────────────────────── */
-  .mix { padding: 22px 24px; }
-  .mix-bar {
-    display: flex; height: 28px;
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-    border: 1px solid var(--border);
-    margin-bottom: 14px;
-  }
-  .mix-seg {
-    height: 100%;
-    display: flex; align-items: center; justify-content: center;
-    color: #fff;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    transition: opacity 150ms ease-out;
-  }
-  .mix-seg:hover { opacity: 0.85; }
-  .mix-legend {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px 18px;
-  }
-  .mix-legend-item {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 12px;
-  }
-  .mix-legend-item .sw {
-    width: 10px; height: 10px; border-radius: 3px;
-    flex-shrink: 0;
-  }
-  .mix-legend-item .name { color: var(--text-secondary); }
-  .mix-legend-item .val {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--text-primary);
-    margin-left: auto;
-  }
-  .mix-insight {
-    margin-top: 18px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-    font-size: 13px;
-    line-height: 1.55;
-    color: var(--text-secondary);
-    letter-spacing: -0.1px;
-  }
-  .mix-insight b {
-    color: var(--text-primary);
-    font-weight: 500;
-  }
-  /* Row-2 layout — token mix card uses dark side insight as bottom filler;
-     unified below (around L880). */
 
   /* ─── Sessions list ───────────────────────────────── */
   .session-row {
@@ -1700,23 +1584,6 @@
     padding-top: 0;
     border-top: none;
   }
-  /* 利用率比例条:填充=用过,浅色余量=闲置 */
-  .util-bar {
-    display: flex; height: 7px; border-radius: 4px; overflow: hidden;
-    background: var(--surface-alt); margin: 7px 0 2px;
-  }
-  .util-bar > i { background: var(--text-primary); }
-  .util-cat-head {
-    display: flex; justify-content: space-between; align-items: baseline;
-  }
-  .util-cat-head > b {
-    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
-    color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.08em;
-  }
-  .util-cat-head > span {
-    font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary);
-  }
-  .util-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
   .popover-section > strong {
     display: block;
     font-family: var(--font-mono);
@@ -1799,20 +1666,6 @@
     font-size: 12px;
   }
 
-  /* trend card insight at the bottom */
-  .trend-insight {
-    margin: 10px 24px 18px;
-    padding: 12px 14px;
-    background: rgba(0, 0, 0, 0.028);
-    border-radius: 6px;
-    font-size: 12.5px;
-    line-height: 1.65;
-    color: var(--text-secondary);
-    letter-spacing: -0.05px;
-  }
-  .trend-insight p { margin: 0; }
-  .trend-insight p + p { margin-top: 6px; }
-  .trend-insight b { color: var(--text-primary); font-weight: 500; }
 
   /* fade-in */
   @keyframes fadeUp {
@@ -1932,34 +1785,11 @@
     const denom = (tk.input || 0) + (tk.cache_read || 0) + (tk.cache_creation || 0);
     return denom > 0 ? (tk.cache_read || 0) / denom : 0;
   };
-  // 「闲置能力」hero stat:你亲手装的 skill/MCP,近 N 天没碰的个数(装了没用)
-  // 窗口无关于日/周/月 tab——它是"你的配置"快照。静态模式(build)无此数据。
-  const utilStat = data => {
-    const u = data && data.utilization;
-    if (!u) return { label: "闲置能力", value: "—", sub: "需实时模式(serve)" };
-    const mIdle = u.mcp.idle.length, sIdle = u.skills.idle.length;
-    const total = mIdle + sIdle;
-    return {
-      label: "闲置能力",
-      value: String(total),
-      sub: total === 0
-        ? `装的全用上了 · 近${u.window_days}天`
-        : `MCP ${mIdle} · Skills ${sIdle} · 近${u.window_days}天没碰`,
-    };
-  };
-
-  // Build N-day token series per project name across a day window.
-  // Used by renderProjects to draw a sparkline next to each row (与卡片主指标 work 一致).
-  function attachProjectSparklines(projects, windowDays) {
-    const series = new Map();
+  // 给每个项目挂上它最近一次 session 的标题 —— 项目卡上那张便签。
+  // (原先还算一条 30 天 work 序列喂 sparkline,那条卡已下线,序列没人读了,一并撤掉。)
+  function attachProjectTitles(projects, windowDays) {
     const latestTitle = new Map();   // project -> most-recent ai-title
-    windowDays.forEach((d, di) => {
-      for (const p of d.projects) {
-        const key = p.name;
-        if (!series.has(key)) series.set(key, new Array(windowDays.length).fill(0));
-        series.get(key)[di] = workTokens(p);
-      }
-      // walk this day's sessions; for each project, keep the latest session's title
+    windowDays.forEach(d => {
       for (const s of (d.sessions_list || [])) {
         const proj = s.project;
         if (!proj) continue;
@@ -1972,7 +1802,6 @@
     });
     return projects.map(p => ({
       ...p,
-      sparkline: series.get(p.name) || new Array(windowDays.length).fill(0),
       _latest_title: (latestTitle.get(p.name) || {}).title || "",
     }));
   }
@@ -2079,7 +1908,7 @@
         costTotal: today.cost || 0,
         costByModel: today.cost_by_model || {},
         costModels: today.models || {},
-        projects: attachProjectSparklines(today.projects, data.days.slice(-7)),
+        projects: attachProjectTitles(today.projects, data.days.slice(-7)),
         sessions_list: today.sessions_list,
         sessions_opts: {
           title: "今日 Sessions",
@@ -2131,7 +1960,7 @@
       if (!!a.fallback !== !!b.fallback) return a.fallback ? 1 : -1;  // 真项目在前, 兜底桶沉底
       return (b.active_min || 0) - (a.active_min || 0);
     });
-    const projects = attachProjectSparklines(projectsRaw, subset);
+    const projects = attachProjectTitles(projectsRaw, subset);
     allSessions.sort((a, b) => b.tokens - a.tokens);
 
     // by-day activity: use sessions count per day (or tokens — sessions reads cleaner)
@@ -2855,200 +2684,7 @@
     `;
   }
 
-  function renderSparkline(values, label, valLabel, axisLabels, days) {
-    // Uses non-scaling-stroke for the line so it doesn't get thicker when stretched,
-    // and renders dots as absolutely-positioned divs OUTSIDE the SVG so they stay
-    // perfectly circular regardless of container width.
-    const W = 360, H = 56, pad = 4;
-    const max = Math.max(1, ...values);
-    const step = (W - pad * 2) / Math.max(1, values.length - 1);
-    const pts = values.map((v, i) => {
-      const x = pad + i * step;
-      const y = H - pad - (v / max) * (H - pad * 2);
-      return [x, y];
-    });
-    const path = pts.map((p, i) => (i === 0 ? "M" : "L") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
-    const area = path + ` L ${pts[pts.length - 1][0]} ${H - pad} L ${pts[0][0]} ${H - pad} Z`;
-    const safeId = "sparkfill-" + label.replace(/[^a-zA-Z0-9]/g, "");
 
-    // Dots as HTML divs (immune to viewBox stretching)
-    const dotsHTML = pts.map(([x, y], i) => {
-      const last = i === pts.length - 1;
-      const xPct = (x / W) * 100;
-      const yPct = (y / H) * 100;
-      const day = days?.[i];
-      const cls = ["spark-dot"];
-      if (last) cls.push("is-last");
-      if (day) cls.push("is-clickable");
-      const dateAttr = day ? `data-date="${day.date}"` : "";
-      return `<div class="${cls.join(" ")}" style="left:${xPct}%; top:${yPct}%;" ${dateAttr}></div>`;
-    }).join("");
-
-    return `
-      <div class="spark">
-        <div class="spark-row">
-          <span class="spark-name">${label}</span>
-          <span class="spark-val">${valLabel}</span>
-        </div>
-        <div class="spark-container">
-          <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="${safeId}" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="rgba(23,23,23,0.12)"/>
-                <stop offset="100%" stop-color="rgba(23,23,23,0)"/>
-              </linearGradient>
-            </defs>
-            <path d="${area}" fill="url(#${safeId})"/>
-            <path d="${path}" fill="none" stroke="var(--g5)" stroke-width="1.5"
-              stroke-linejoin="round" stroke-linecap="round"
-              vector-effect="non-scaling-stroke"/>
-          </svg>
-          <div class="spark-dots">${dotsHTML}</div>
-        </div>
-        <div class="spark-axis">
-          <span>${axisLabels[0]}</span>
-          <span>${axisLabels[1]}</span>
-        </div>
-      </div>
-    `;
-  }
-
-  function buildTrendInsight(days) {
-    const tokens = days.map(d => d.tokens.total);
-    const sessions = days.map(d => d.sessions);
-    const totalTokens = tokens.reduce((a, b) => a + b, 0);
-    const totalSessions = sessions.reduce((a, b) => a + b, 0);
-    if (totalSessions === 0) return "";
-
-    const peakIdx = sessions.indexOf(Math.max(...sessions));
-    const peakDay = days[peakIdx];
-    const dryDays = days.filter(d => d.sessions === 0).length;
-    const peakHours = Math.round(peakDay.sessions_list.reduce((a, s) => a + s.active_min, 0) / 60);
-    const peakProj = (peakDay.projects[0] || {}).label || "";
-    const peakTokensShare = totalTokens > 0
-      ? Math.round((peakDay.tokens.total / totalTokens) * 100) : 0;
-    const half = Math.floor(days.length / 2);
-    const firstHalfSes = sessions.slice(0, half).reduce((a, v) => a + v, 0);
-    const secondHalfSes = sessions.slice(half).reduce((a, v) => a + v, 0);
-
-    const lines = [];
-    let line1 = `高潮在 <b>${peakDay.weekday} ${peakDay.date.slice(5)}</b>，${peakDay.sessions} 个 session 共 ${peakHours}h`;
-    if (peakProj) line1 += `，主线是 <b>${escapeHTML(peakProj)}</b>`;
-    line1 += `，约占${days.length === 7 ? "本周" : "本月"} ${peakTokensShare}% 的 token 用量。`;
-    lines.push(line1);
-
-    const trendBits = [];
-    if (dryDays > 0) trendBits.push(`其中 <b>${dryDays} 天</b>完全空白`);
-    if (firstHalfSes > 0 && secondHalfSes > 0) {
-      if (secondHalfSes > firstHalfSes * 1.4) trendBits.push(`整体呈<b>上升</b>趋势（前半段 ${firstHalfSes} → 后半段 ${secondHalfSes} session）`);
-      else if (firstHalfSes > secondHalfSes * 1.4) trendBits.push(`整体呈<b>回落</b>趋势（前半段 ${firstHalfSes} → 后半段 ${secondHalfSes} session）`);
-    }
-    if (trendBits.length) lines.push(trendBits.join("，") + "。");
-
-    return lines.map(l => `<p>${l}</p>`).join("");
-  }
-
-  function renderTrend(days, title) {
-    const tokens = days.map(d => d.tokens.total);
-    const sessions = days.map(d => d.sessions);
-    const prompts = days.map(d => d.user_msgs);
-    const totalTokens = tokens.reduce((a, b) => a + b, 0);
-    const totalSessions = sessions.reduce((a, b) => a + b, 0);
-    const totalPrompts = prompts.reduce((a, b) => a + b, 0);
-    const axisFirst = days[0].weekday + " " + days[0].date.slice(5);
-    const axisLast = days[days.length - 1].weekday + " " + days[days.length - 1].date.slice(5);
-
-    return `
-      <div class="card reveal">
-        <div class="card-head">
-          <h2>${title}</h2>
-          <span class="meta">${axisFirst} → ${axisLast}</span>
-        </div>
-        ${renderSparkline(tokens, "Tokens", "总计 " + fmtTok(totalTokens), [axisFirst, axisLast], days)}
-        ${renderSparkline(sessions, "Sessions", "总计 " + fmtInt(totalSessions), [axisFirst, axisLast], days)}
-        ${renderSparkline(prompts, "Prompts", "总计 " + fmtInt(totalPrompts), [axisFirst, axisLast], days)}
-      </div>
-    `;
-  }
-
-  function renderTokenMix(tk, sideInsightHTML) {
-    const segs = [
-      { key: "output",         name: "Output",      val: tk.output || 0,         color: "var(--g5)" },
-      { key: "cache_creation", name: "Cache write", val: tk.cache_creation || 0, color: "var(--g3)" },
-      { key: "input",          name: "Input",       val: tk.input || 0,          color: "var(--g4)" },
-    ];
-    const computeTotal = segs.reduce((a, s) => a + s.val, 0);
-    const safeTotal = computeTotal || 1;
-    const bar = segs.map(s => {
-      const pct = (s.val / safeTotal) * 100;
-      const wide = pct > 12;
-      return `<div class="mix-seg" style="width:${pct}%; background:${s.color}; color:#fff;"
-              title="${s.name}: ${fmtTok(s.val)} (${pct.toFixed(1)}%)">
-              ${wide ? s.name : ""}</div>`;
-    }).join("");
-    const legend = segs.map(s => {
-      const pct = (s.val / safeTotal) * 100;
-      return `
-        <div class="mix-legend-item">
-          <span class="sw" style="background:${s.color}"></span>
-          <span class="name">${s.name}</span>
-          <span class="val">${fmtTok(s.val)} <span style="color:var(--text-tertiary);">${pct.toFixed(0)}%</span></span>
-        </div>
-      `;
-    }).join("");
-
-    // One-line insight selected from data
-    const insight = buildTokenInsight(tk, segs, computeTotal);
-
-    const sideBlock = sideInsightHTML ? `
-      <div class="mix-side-insight">
-        <div class="msi-label">← 近 N 日趋势</div>
-        ${sideInsightHTML}
-      </div>
-    `.replace("近 N 日趋势", "近期趋势") : "";
-
-    return `
-      <div class="card reveal">
-        <div class="card-head">
-          <h2>Token 用量构成</h2>
-          <span class="meta">总计 · ${fmtTok(computeTotal)} · 不含 cache_read</span>
-        </div>
-        <div class="mix">
-          <div class="mix-bar">${bar}</div>
-          <div class="mix-legend">${legend}</div>
-          ${insight ? `<div class="mix-insight">${insight}</div>` : ""}
-        </div>
-        ${sideBlock}
-      </div>
-    `;
-  }
-
-  function buildTokenInsight(tk, segs, computeTotal) {
-    if (computeTotal < 1) return "";
-    const output = tk.output || 0;
-    const cacheW = tk.cache_creation || 0;
-    const cacheR = tk.cache_read || 0;
-    const input = tk.input || 0;
-    const promptTotal = input + cacheR + cacheW;
-    const hit = promptTotal > 0 ? cacheR / promptTotal : 0;
-    const outputPct = output / computeTotal;
-    const cacheWPct = cacheW / computeTotal;
-
-    // Priority: highest-signal observation first
-    if (hit >= 0.9 && cacheR > 50_000_000) {
-      return `<b>${fmtTok(cacheR)} 是缓存重读</b> · 占 token 大头。每轮都重读整段上下文（轮数 × 长度），反映对话重、开得久，<b>不是产出</b>——干了多少活看 output。`;
-    }
-    if (cacheWPct > 0.6) {
-      return `<b>${Math.round(cacheWPct * 100)}% 在写 cache</b> · 今天主要在加载新上下文（读文件、装载 skills、扫历史），真正 output 仅 ${Math.round(outputPct * 100)}%。`;
-    }
-    if (outputPct > 0.4) {
-      return `<b>Output 占 ${Math.round(outputPct * 100)}%</b> · 今天产出密度高，对话/工具调用都在生成内容。`;
-    }
-    if (outputPct < 0.05 && cacheWPct < 0.2) {
-      return `<b>${Math.round((input / computeTotal) * 100)}% 是 input</b> · 今天多在读入新内容（文件 / 上下文），生成（output）占比低。`;
-    }
-    return `Output ${fmtTok(output)} · Cache write ${fmtTok(cacheW)} · Input ${fmtTok(input)}。`;
-  }
 
   // 各项目时间占比 · % 在条外(依次变小)+ 项目名小字在条内;显示更多项目,长尾归"其他"
   const PPCT_SIZE = [22, 18, 16, 15, 14, 13, 12];
@@ -3412,87 +3048,6 @@
     `;
   }
 
-  // Educational popover content for each hero stat
-  const STAT_EXPLAIN = {
-    "Sessions": () => `
-      <div class="popover-head">
-        <span class="popover-title">Sessions</span>
-        <span class="popover-sub">独立 cc 对话窗口数</span>
-      </div>
-      <div class="popover-body">
-        <p>一个 session 对应一次独立打开的 cc 对话，每条 prompt 都有 sessionId。新开窗口或 /resume 切换上下文会产生新 session。</p>
-        <div class="popover-section">
-          <strong>怎么看</strong>
-          <p>1–3 个 = 长时间专注一两条主线；4+ 个 = 多任务节奏，频繁开新窗口；跨多日的 session 在每一天会单独切片计数。</p>
-        </div>
-      </div>
-    `,
-    "Prompts": () => `
-      <div class="popover-head">
-        <span class="popover-title">Prompts</span>
-        <span class="popover-sub">你发给 cc 的消息条数</span>
-      </div>
-      <div class="popover-body">
-        <p>所有 <code>type=user</code> 的 message 数，不含 cc 的 assistant 回复。一次 prompt 可能触发多轮 assistant 思考 + 工具调用。</p>
-        <div class="popover-section">
-          <strong>怎么看</strong>
-          <p>跟下方 "X 次 assistant 回复" 一起看。assistant / prompt 比例高 = 你给 cc 自主探索空间多；比例 ≈ 1 = 高频指挥。</p>
-        </div>
-      </div>
-    `,
-    "Output": () => `
-      <div class="popover-head">
-        <span class="popover-title">Output</span>
-        <span class="popover-sub">cc 真实生成的 token 数</span>
-      </div>
-      <div class="popover-body">
-        <p>= <code>output_tokens</code>（最终回复）+ <code>cache_creation_input_tokens</code>（写入新缓存的部分）。<strong>不含 cache_read</strong>。</p>
-        <div class="popover-section">
-          <strong>为什么不算 cache_read</strong>
-          <p>cache_read 是 prompt 命中缓存的部分，是"读"不是"生成"，且单价只有 input 的 1/10。把它算进总数会让数字看着大但失真——你今天总 tokens 180M 但 Output 只有 6.3M，差异就是 cache_read 拉的。</p>
-        </div>
-        <div class="popover-section">
-          <strong>怎么看</strong>
-          <p>Output 直接对应 cc 做了多少"真活"——写代码、回答、思考链、工具调用结果。比 tokens 总量诚实。</p>
-        </div>
-      </div>
-    `,
-    "闲置能力": () => {
-      const u = DATA && DATA.utilization;
-      if (!u) return `
-        <div class="popover-head"><span class="popover-title">闲置能力</span></div>
-        <div class="popover-body"><p>这项需实时模式:用 <code>cc-reports.py serve</code> 打开才算(静态 build 不含)。</p></div>`;
-      const chips = arr => arr.length
-        ? `<div class="util-chips">${arr.map(x => `<code>${escapeHTML(x)}</code>`).join("")}</div>`
-        : `<div class="popover-empty" style="padding:6px 0">全用上了 ✓</div>`;
-      const cat = (name, d) => {
-        const pct = d.installed > 0 ? Math.round(d.used / d.installed * 100) : 0;
-        return `
-          <div class="popover-section">
-            <div class="util-cat-head">
-              <b>${name}</b><span>用 ${d.used}/${d.installed} · 闲置 ${d.idle.length}</span>
-            </div>
-            <div class="util-bar"><i style="width:${pct}%"></i></div>
-            ${chips(d.idle)}
-          </div>`;
-      };
-      return `
-        <div class="popover-head">
-          <span class="popover-title">闲置能力</span>
-          <span class="popover-sub">你亲手装的 · 近 ${u.window_days} 天没调用过</span>
-        </div>
-        <div class="popover-body">
-          ${cat("MCP", u.mcp)}
-          ${cat("Skills", u.skills)}
-          <div class="popover-section">
-            <strong>怎么看</strong>
-            <p>只统计你<strong>亲手装的</strong>(插件捆绑的 lark-* 等不计入)。<strong>闲置 ≠ 浪费</strong>——pdf / watch 这类看场景才用。当它是"精简 / 重新发现"候选清单,不是打分。</p>
-          </div>
-        </div>
-      `;
-    },
-  };
-
   function setupProjectClicks() {
     document.querySelectorAll('.folder-card').forEach(card => {
       card.addEventListener('click', (e) => {
@@ -3596,18 +3151,6 @@
         </div>
       </div>
     `;
-  }
-
-  function setupStatClicks() {
-    document.querySelectorAll(".stat[data-stat-key]").forEach(stat => {
-      stat.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const key = stat.dataset.statKey;
-        const builder = STAT_EXPLAIN[key];
-        if (!builder) return;
-        showPopover(stat, builder());
-      });
-    });
   }
 
   function renderControls(currentRange) {
@@ -3731,8 +3274,6 @@
     setupSideNav();
     setupBarClicks();
     setupHeatmapClicks();
-    setupSparklineClicks();
-    setupStatClicks();
     setupProjectClicks();
     setupCostClicks();
     hidePopover();
@@ -3927,19 +3468,6 @@
         const byModel = day?.hourly_tokens_by_model?.[hour] || day?.hourly_by_model?.[hour] || {};
         const html = buildHourPopover(date, hour, byModel);
         showPopover(rect, html);
-      });
-    });
-  }
-
-  function setupSparklineClicks() {
-    if (!DATA) return;
-    document.querySelectorAll('.spark-dot.is-clickable').forEach(dot => {
-      dot.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const date = dot.dataset.date;
-        const day = DATA.days.find(d => d.date === date);
-        if (!day) return;
-        showPopover(dot, buildDayPopover(day));
       });
     });
   }
