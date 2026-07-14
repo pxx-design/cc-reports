@@ -7,8 +7,9 @@ class CcGlance < Formula
   head "https://github.com/pxx-design/cc-reports.git", branch: "main"
 
   depends_on xcode: ["15.0", :build]
-  depends_on macos: :ventura      # ScreenCaptureKit-free, but SwiftUI/AppKit APIs need 13+
-  depends_on "python@3.13"        # cc-reports.py 要 3.10+；系统自带的可能还是 3.9
+  depends_on macos: :ventura      # AppKit / Carbon 热键路径需要 13+
+  # 不依赖 brew 的 python:内核是纯标准库,实测系统自带的 python3(3.9.6)跑 build/serve/glance/doctor
+  # 全通 —— 让用户为此多装 60MB 的 python@3.13 是白付。浮窗内部也走同一条 `env python3`,口径一致。
 
   def install
     system "swift", "build", "--disable-sandbox", "-c", "release", "--package-path", "menubar"
@@ -25,7 +26,7 @@ class CcGlance < Formula
     SH
     (bin/"cc-reports").write <<~SH
       #!/bin/bash
-      exec "#{Formula["python@3.13"].opt_bin}/python3" "#{libexec}/cc-reports.py" "$@"
+      exec /usr/bin/env python3 "#{libexec}/cc-reports.py" "$@"
     SH
     chmod 0755, bin/"cc-glance"
     chmod 0755, bin/"cc-reports"
