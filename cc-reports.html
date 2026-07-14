@@ -660,25 +660,27 @@
   .rhythm-narrative p { margin: 0; }
   .rhythm-narrative p + p { margin-top: 6px; }
 
-  /* Weekly compact variant — heatmap is only ~110px tall, side panel must match */
-  .heatmap-row.is-weekly .heatmap-stats {
-    justify-content: flex-start;
-    gap: 12px;
-    padding-top: 0;
-  }
-  .heatmap-row.is-weekly .rhythm-row {
+  /* 周月共用:统计行(总量 + 活跃日)与峰值行 */
+  .heatmap-stats .rhythm-row {
     display: flex;
     gap: 28px;
   }
-  .heatmap-row.is-weekly .rhythm-peak-inline {
+  .heatmap-stats .rhythm-peak-inline {
     display: flex;
     align-items: baseline;
     gap: 10px;
     padding-top: 10px;
     border-top: 1px dashed var(--border);
   }
-  .heatmap-row.is-weekly .rhythm-peak-inline .rhythm-label {
+  .heatmap-stats .rhythm-peak-inline .rhythm-label {
     margin-bottom: 0;
+  }
+
+  /* Weekly compact variant — heatmap is only ~110px tall, side panel must match */
+  .heatmap-row.is-weekly .heatmap-stats {
+    justify-content: flex-start;
+    gap: 12px;
+    padding-top: 0;
   }
   .heatmap-row.is-weekly .rhythm-narrative-weekly {
     padding-top: 10px;
@@ -2587,28 +2589,31 @@
     }
     const narrativeHTML = buildNarrative();
 
+    // 与日报侧栏同一套排布:总量当主数字打头(日报是「今日消耗」),均值/连续性降为副数字。
+    // 原先周月只报「日均消耗」,总量一次都不出现 —— 成本 ≈$1.2K 挂在那儿, 产生它的 token 总量却看不到。
+    const periodTotalLabel = `${isMonthly ? "本月" : "本周"}${isTok ? "消耗" : "消息"}`;
+
     // ─── Stats panel content varies by period
     let statsHTML;
     if (isMonthly) {
-      // Monthly — full layout: 4 stats + bucket bar + 3-line narrative
       statsHTML = `
-        <div class="rhythm-stat">
-          <div class="rhythm-label">活跃日</div>
-          <div class="rhythm-value">${activeDays}<span class="rhythm-unit"> / ${totalDays}</span></div>
-        </div>
-        <div class="rhythm-stat">
-          <div class="rhythm-label">${avgLabel}</div>
-          <div class="rhythm-value">${fmtVal(avgMsgs)}<span class="rhythm-unit">${isTok ? "" : " 条"}</span></div>
-        </div>
-        <div class="rhythm-stat">
-          <div class="rhythm-label">最长连续</div>
-          <div class="rhythm-value">${maxStreak}<span class="rhythm-unit"> 天</span></div>
+        <div class="rhythm-row">
+          <div class="rhythm-stat">
+            <div class="rhythm-label">${periodTotalLabel}</div>
+            <div class="rhythm-value">${fmtVal(totalMsgs)}<span class="rhythm-unit">${isTok ? "" : " 条"}</span></div>
+            <div class="rhythm-sub">${avgLabel} ${fmtVal(avgMsgs)}</div>
+          </div>
+          <div class="rhythm-stat">
+            <div class="rhythm-label">活跃日</div>
+            <div class="rhythm-value">${activeDays}<span class="rhythm-unit"> / ${totalDays}</span></div>
+            <div class="rhythm-sub">最长连续 ${maxStreak} 天</div>
+          </div>
         </div>
         ${peakCell ? `
-          <div class="rhythm-stat">
-            <div class="rhythm-label">峰值时刻</div>
-            <div class="rhythm-value-mono">${peakCell.d.date.slice(5)} · ${String(peakCell.hi).padStart(2,'0')}:00</div>
-            <div class="rhythm-sub">${fmtVal(peakCell.v)} ${isTok ? "tokens" : "条 assistant 回复"}</div>
+          <div class="rhythm-peak-inline">
+            <span class="rhythm-label">峰值</span>
+            <span class="rhythm-value-mono">${peakCell.d.date.slice(5)} · ${String(peakCell.hi).padStart(2,'0')}:00</span>
+            <span class="rhythm-sub">${fmtVal(peakCell.v)}${isTok ? "" : " 条"}</span>
           </div>
         ` : ""}
         <div class="rhythm-insight">
@@ -2632,12 +2637,14 @@
       statsHTML = `
         <div class="rhythm-row">
           <div class="rhythm-stat">
-            <div class="rhythm-label">活跃日</div>
-            <div class="rhythm-value">${activeDays}<span class="rhythm-unit"> / ${totalDays}</span></div>
+            <div class="rhythm-label">${periodTotalLabel}</div>
+            <div class="rhythm-value">${fmtVal(totalMsgs)}<span class="rhythm-unit">${isTok ? "" : " 条"}</span></div>
+            <div class="rhythm-sub">${avgLabel} ${fmtVal(avgMsgs)}</div>
           </div>
           <div class="rhythm-stat">
-            <div class="rhythm-label">${avgLabel}</div>
-            <div class="rhythm-value">${fmtVal(avgMsgs)}<span class="rhythm-unit"></span></div>
+            <div class="rhythm-label">活跃日</div>
+            <div class="rhythm-value">${activeDays}<span class="rhythm-unit"> / ${totalDays}</span></div>
+            <div class="rhythm-sub">最长连续 ${maxStreak} 天</div>
           </div>
         </div>
         ${peakCell ? `
