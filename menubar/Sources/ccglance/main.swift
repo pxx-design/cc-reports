@@ -8,15 +8,33 @@ import Carbon.HIToolbox
 // 数据来自 `cc-reports.py glance`(纯本地扫 ~/.claude/projects,不联网),
 // Swift 每次刷新把 JSON 注入 WebView,HTML 负责画项目条 / sparkline / 动画。
 
-// ── 定位 cc-reports.py(优先个人 skill 目录,回退到 repo)──────
+// ── 定位 cc-reports.py ──────────────────────────────────────
+// 五级回退,覆盖三种安装形态:brew(二进制在 bin,脚本在 libexec)/ skill 软链 / 源码树直接跑。
+// (旧版只认「skill 目录」和一个硬编码的个人 Desktop 路径 —— brew 装完必然找不到脚本。)
 func scriptPath() -> String {
-    let home = FileManager.default.homeDirectoryForCurrentUser.path
-    let candidates = [
-        home + "/.claude/skills/cc-reports/cc-reports.py",
-        home + "/Desktop/cursor1/15-cc-reports/cc-reports.py",
-    ]
-    for p in candidates where FileManager.default.fileExists(atPath: p) { return p }
-    return candidates[0]
+    let fm = FileManager.default
+    let home = fm.homeDirectoryForCurrentUser.path
+    var candidates: [String] = []
+
+    // ① 显式指定(排障/自定义布局的逃生口)
+    if let p = ProcessInfo.processInfo.environment["CC_REPORTS_PY"], !p.isEmpty {
+        candidates.append(p)
+    }
+    // ② 相对可执行文件:brew 布局 bin/../libexec/cc-reports.py;同目录也认
+    let exeDir = URL(fileURLWithPath: CommandLine.arguments[0])
+        .resolvingSymlinksInPath()
+        .deletingLastPathComponent()
+    candidates.append(exeDir.appendingPathComponent("cc-reports.py").path)
+    candidates.append(exeDir.deletingLastPathComponent()
+        .appendingPathComponent("libexec/cc-reports.py").path)
+    // ③ 源码树直接跑:menubar/.build/release/ccglance → 仓库根
+    candidates.append(exeDir.deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().appendingPathComponent("cc-reports.py").path)
+    // ④ 装成 Claude Code skill 的软链目录
+    candidates.append(home + "/.claude/skills/cc-reports/cc-reports.py")
+
+    for p in candidates where fm.fileExists(atPath: p) { return p }
+    return candidates.last ?? ""
 }
 
 // ── 跑 glance,拿原始 JSON 字符串(直接注入 WebView,不在 Swift 解析)──
