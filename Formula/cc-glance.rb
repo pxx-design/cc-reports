@@ -1,8 +1,8 @@
 class CcGlance < Formula
   desc "Claude Code usage widget + local daily/weekly/monthly report dashboard"
   homepage "https://github.com/pxx-design/cc-reports"
-  url "https://github.com/pxx-design/cc-reports/archive/refs/tags/v0.5.0.tar.gz"
-  sha256 "62786f911ae16e44a491956d0a7e51800ade2c6a4896de86e26cef4c25c3b1b6"
+  url "https://github.com/pxx-design/cc-reports/archive/refs/tags/v0.5.1.tar.gz"
+  sha256 "96f8a4cb88a06b1d264f873d7a4c09d51b3cfd083d97f4b16012aab7fdd07f4f"
   license "MIT"
   head "https://github.com/pxx-design/cc-reports.git", branch: "main"
 
